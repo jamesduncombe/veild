@@ -23,7 +23,7 @@ func (r *ResponseCache) Get(key uint16) (interface{}, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if val, ok := r.responses[key]; ok {
-		log.Printf("[rcache] Match for 0x%x\n", key)
+		log.Printf("[rcache] Match for \x1b[31;1m0x%x\x1b[0m\n", key)
 		delete(r.responses, key)
 		return val, true
 	}

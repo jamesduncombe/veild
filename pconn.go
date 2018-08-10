@@ -102,7 +102,10 @@ func (p *PConn) readLoop() {
 			// Calculate ellapsed time since start of request.
 			elapsed := time.Since(val.(Packet).start)
 
-			log.Printf("[pool] Trans.ID: 0x%x Query time: %v\n", reqID, elapsed)
+			log.Printf("[pool] Trans.ID: \x1b[31;1m0x%x\x1b[0m Query time: \x1b[31;1m%v\x1b[0m\n",
+				reqID,
+				elapsed,
+			)
 		}
 	}
 

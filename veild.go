@@ -1,3 +1,4 @@
+// Package veild is the main veil package for handling DNS to DNS-over-TLS connections.
 package veild
 
 import (
@@ -9,7 +10,6 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
-
 	"time"
 )
 
@@ -78,7 +78,7 @@ func Run(config *Config) {
 	}
 
 	// Setup listening for UDP server.
-	log.Printf("[main] Listening on %s (UDP)\n", udpAddr)
+	log.Printf("[main] \x1b[34;1mListening on %s (UDP)\x1b[0m\n", udpAddr)
 	conn, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
 		log.Println(err)
