@@ -2,8 +2,10 @@ package veild
 
 import (
 	"crypto/sha1"
+	"io/ioutil"
 	"log"
 	"net"
+
 	"time"
 )
 
@@ -12,6 +14,7 @@ type Config struct {
 	ListenAddr    string
 	Caching       bool
 	BlacklistFile string
+	ResolversFile string
 }
 
 // Packet represents the structure of a client request.
@@ -79,7 +82,22 @@ func Run(config *Config) {
 	go pool.Dispatch()
 
 	// Add workers to the pooler.
-	pool.NewWorker("9.9.9.9:853", "dns.quad9.net")
+	resolversList := []byte{}
+	if config.ResolversFile == "" {
+		log.Println("[poo] No resolvers file given, using default (1.1.1.1 and 1.0.0.1)")
+		resolversList = []byte(defaultResolver)
+	} else {
+		resolversList, _ = ioutil.ReadFile(config.ResolversFile)
+	}
+
+	resolvers, err := LoadResolvers(resolversList)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	for _, k := range resolvers.Resolvers {
+		pool.NewWorker(k.Address, k.Hostname)
+	}
 
 	// Enter the listening loop.
 	for {
