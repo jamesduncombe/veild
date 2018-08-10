@@ -45,6 +45,14 @@ func (p *Pool) NewWorker(host, serverName string) {
 	go p.worker(w)
 }
 
+// Stats prints out connection stats every x seconds.
+func (p *Pool) Stats() {
+	for {
+		log.Printf("[pool] [stats] Packets: %d, Reconnections: %d, Workers: %d\n", len(p.packets), len(p.reconnect), len(p.workers))
+		time.Sleep(10 * time.Second)
+	}
+}
+
 // ConnectionManagement management handles reconnects.
 func (p *Pool) ConnectionManagement() {
 	for {
