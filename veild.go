@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"strconv"
 
 	"time"
 )
@@ -13,6 +14,7 @@ import (
 type Config struct {
 	ListenAddr    string
 	Caching       bool
+	OutboundPort  uint
 	BlacklistFile string
 	ResolversFile string
 }
@@ -49,6 +51,8 @@ func Run(config *Config) {
 		log.Printf("[blacklist] Loaded %d entries into the blacklist\n", len(blacklist.list))
 		blacklisting = true
 	}
+
+	log.Printf("[main] \x1b[31;1mOutbound port set to %d\x1b[0m\n", config.OutboundPort)
 
 	// Setup caching.
 	if config.Caching {
@@ -96,7 +100,14 @@ func Run(config *Config) {
 	}
 
 	for _, k := range resolvers.Resolvers {
-		pool.NewWorker(k.Address, k.Hostname)
+		_, port, err := net.SplitHostPort(k.Address)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		rport, _ := strconv.Atoi(port)
+		if config.OutboundPort == uint(rport) {
+			pool.NewWorker(k.Address, k.Hostname)
+		}
 	}
 
 	// Enter the listening loop.
