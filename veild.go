@@ -5,7 +5,10 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 
 	"time"
 )
@@ -64,6 +67,9 @@ func Run(config *Config) {
 
 		go queryCache.Reaper()
 	}
+
+	// Setup goroutine for handling the exit signals.
+	go cleanup()
 
 	// Parse the listener address.
 	udpAddr, err := net.ResolveUDPAddr("udp", config.ListenAddr)
@@ -188,4 +194,17 @@ func parseDomainName(data []byte) string {
 		i += l + 1 // increment to next label offset
 	}
 	return string(parts)
+}
+
+// cleanup handles the exiting of veil.
+func cleanup() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-c
+		log.Printf("[main] Exiting...\n")
+		log.Printf("[stats] Total requests served: %d\n", numRequests)
+		os.Exit(0)
+	}()
 }
