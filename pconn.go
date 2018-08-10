@@ -1,6 +1,7 @@
 package veild
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/binary"
 	"io"
@@ -87,6 +88,14 @@ func (p *PConn) readLoop() {
 
 		if val, ok := p.cache.Get(reqID); ok {
 
+			if caching {
+				// Write response to cache.
+				nameType := sliceNameType(buff[2+12 : n])
+				s := createCacheKey(nameType)
+				offsets := ttlRipper(buff[2:n])
+				queryCache.Put(s, Query{buff[2:n], offsets})
+			}
+
 			// Shave off first 2 bytes for the length and write back to client over UDP.
 			val.(Packet).clientConn.WriteToUDP(buff[2:n], val.(Packet).clientAddr)
 
@@ -125,4 +134,15 @@ func (p *PConn) writeLoop() {
 		}
 	}
 
+}
+
+// sliceNameType takes a DNS request and slices out the name + type of the request.
+// This is mainly used for the cache key when storing a request.
+func sliceNameType(packet []byte) []byte {
+	// Scan for end of name (0x00).
+	if i := bytes.IndexByte(packet, 0x00); i != -1 {
+		// Return the name and type.
+		return packet[:i+3]
+	}
+	return []byte{}
 }

@@ -14,6 +14,7 @@ var veilVersion string
 // Flags for setting up veil.
 var (
 	listenAddr string
+	caching    bool
 	version    bool
 )
 
@@ -32,6 +33,7 @@ func main() {
 
 	// Flags init.
 	flag.StringVar(&listenAddr, "l", "127.0.0.1:53", "Listen on `address:port` for serving requests")
+	flag.BoolVar(&caching, "c", false, "Turn on caching (off by default)")
 	flag.BoolVar(&version, "v", false, "Version info")
 	flag.Parse()
 
@@ -43,6 +45,7 @@ func main() {
 	// Sort out the config.
 	config := &veild.Config{
 		ListenAddr: listenAddr,
+		Caching:    caching,
 	}
 
 	// Start Veil.
