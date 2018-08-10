@@ -13,9 +13,10 @@ var veilVersion string
 
 // Flags for setting up veil.
 var (
-	listenAddr string
-	caching    bool
-	version    bool
+	listenAddr    string
+	caching       bool
+	version       bool
+	blacklistFile string
 )
 
 // usage handles the default usage instructions for the cmd.
@@ -34,6 +35,7 @@ func main() {
 	// Flags init.
 	flag.StringVar(&listenAddr, "l", "127.0.0.1:53", "Listen on `address:port` for serving requests")
 	flag.BoolVar(&caching, "c", false, "Turn on caching (off by default)")
+	flag.StringVar(&blacklistFile, "b", "", "Read `blacklist` file and enable blacklisting Ad domains")
 	flag.BoolVar(&version, "v", false, "Version info")
 	flag.Parse()
 
@@ -44,8 +46,9 @@ func main() {
 
 	// Sort out the config.
 	config := &veild.Config{
-		ListenAddr: listenAddr,
-		Caching:    caching,
+		ListenAddr:    listenAddr,
+		BlacklistFile: blacklistFile,
+		Caching:       caching,
 	}
 
 	// Start Veil.

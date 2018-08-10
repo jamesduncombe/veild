@@ -1,0 +1,9 @@
+# Social media hosts
+# Updated January 5, 2018
+
+# Facebook
+127.0.0.1 0-act.channel.facebook.com
+127.0.0.1 0-edge-chat.facebook.com
+127.0.0.1 1-act.channel.facebook.com
+127.0.0.1 1-edge-chat.facebook.com
+127.0.0.1 2-act.channel.facebook.com

@@ -9,8 +9,9 @@ import (
 
 // Config represents the command line options for Veil.
 type Config struct {
-	ListenAddr string
-	Caching    bool
+	ListenAddr    string
+	Caching       bool
+	BlacklistFile string
 }
 
 // Packet represents the structure of a client request.
@@ -22,15 +23,29 @@ type Packet struct {
 }
 
 var (
-	queryCache  *QueryCache
-	numRequests int
-	caching     bool
+	queryCache   *QueryCache
+	blacklist    *Blacklist
+	numRequests  int
+	caching      bool
+	blacklisting = false
 )
 
 // Run starts up Veild.
 func Run(config *Config) {
 
 	log.Println("Starting Veil")
+
+	// Setup blacklist.
+	if config.BlacklistFile != "" {
+		log.Println("[blacklist] Loading blacklist")
+		var err error
+		blacklist, err = NewBlacklist(config.BlacklistFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("[blacklist] Loaded %d entries into the blacklist\n", len(blacklist.list))
+		blacklisting = true
+	}
 
 	// Setup caching.
 	if config.Caching {
@@ -88,6 +103,20 @@ func Run(config *Config) {
 // resolve handles individual requests.
 func resolve(p *Pool, packet Packet) {
 
+	// Handle blacklisted domains if enabled.
+	// See: https://en.wikipedia.org/wiki/DNS_sinkhole
+	if blacklisting {
+		name := parseDomainName(packet.packetData[12:])
+		if blacklist.Exists(name) {
+			log.Printf("\x1b[31;1m[blacklist] Match: %s\x1b[0m\n", name)
+			// Reform the query as a response with 0 answers.
+			first := append(packet.packetData[:2], []byte{0x81, 0x83}...)
+			j := append(first, packet.packetData[4:]...)
+			packet.clientConn.WriteToUDP(j, packet.clientAddr)
+			return
+		}
+	}
+
 	// Handle caching if enabled.
 	if caching {
 		// Create cache key.
@@ -103,6 +132,7 @@ func resolve(p *Pool, packet Packet) {
 		}
 	}
 
+	// Otherwise, send it on.
 	select {
 	case p.packets <- packet:
 	default:
@@ -111,4 +141,22 @@ func resolve(p *Pool, packet Packet) {
 		p.packets <- packet
 	}
 
+}
+
+// parseDomainName takes a slice of bytes and returns a parsed domain name.
+func parseDomainName(data []byte) string {
+	var parts []byte
+	i := 0
+	for {
+		if data[i] == 0x00 {
+			break
+		}
+		if i != 0 {
+			parts = append(parts, []byte{0x2e}...)
+		}
+		l := int(data[i])
+		parts = append(parts, data[i+1:i+l+1]...)
+		i += l + 1 // increment to next label offset
+	}
+	return string(parts)
 }
