@@ -33,14 +33,14 @@ func NewQueryCache() *QueryCache {
 	}
 }
 
-// Put puts an entry into the response cache.
+// Put puts an entry into the query cache.
 func (r *QueryCache) Put(key [sha1.Size]byte, value Query) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.queries[key] = value
 }
 
-// Get gets an entry from the response cache.
+// Get gets an entry from the query cache.
 func (r *QueryCache) Get(key [sha1.Size]byte) (interface{}, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

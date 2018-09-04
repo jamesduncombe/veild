@@ -199,7 +199,7 @@ func parseDomainName(data []byte) string {
 	return string(parts)
 }
 
-// addHostForPort matches if a port that is parsed form resolverAddr matches outboundPort.
+// addHostForPort matches if a port that is parsed from resolverAddr matches outboundPort.
 func addHostForPort(resolverAddr string, outboundPort uint) bool {
 	_, rport, err := net.SplitHostPort(resolverAddr)
 	if err != nil {

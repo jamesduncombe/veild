@@ -29,9 +29,9 @@ type Resolvers struct {
 
 // LoadResolvers loads of a list of resolvers.
 func LoadResolvers(d []byte) (Resolvers, error) {
-	l := Resolvers{}
-	if err := yaml.Unmarshal(d, &l); err != nil {
+	resolvers := Resolvers{}
+	if err := yaml.Unmarshal(d, &resolvers); err != nil {
 		return Resolvers{}, err
 	}
-	return l, nil
+	return resolvers, nil
 }
