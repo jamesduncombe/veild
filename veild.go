@@ -2,7 +2,6 @@
 package veild
 
 import (
-	"crypto/sha1"
 	"io/ioutil"
 	"log"
 	"net"
@@ -13,7 +12,7 @@ import (
 	"time"
 )
 
-// Config represents the command line options for Veil.
+// Config represents the command line options.
 type Config struct {
 	ListenAddr    string
 	Caching       bool
@@ -38,7 +37,7 @@ var (
 	blacklisting = false
 )
 
-// Run starts up Veild.
+// Run starts up the app.
 func Run(config *Config) {
 
 	log.Println("Starting Veil")
@@ -61,10 +60,7 @@ func Run(config *Config) {
 	if config.Caching {
 		caching = true
 		log.Println("[cache] \x1b[31;1mCaching on\x1b[0m")
-		queryCache = &QueryCache{
-			queries: make(map[[sha1.Size]byte]Query),
-		}
-
+		queryCache = NewQueryCache()
 		go queryCache.Reaper()
 	}
 
@@ -94,10 +90,12 @@ func Run(config *Config) {
 	// Add workers to the pooler.
 	resolversList := []byte{}
 	if config.ResolversFile == "" {
-		log.Println("[poo] No resolvers file given, using default (1.1.1.1 and 1.0.0.1)")
+		log.Println("[pool] No resolvers file given, using default (1.1.1.1 and 1.0.0.1)")
 		resolversList = []byte(defaultResolver)
 	} else {
-		resolversList, _ = ioutil.ReadFile(config.ResolversFile)
+		if resolversList, err = ioutil.ReadFile(config.ResolversFile); err != nil {
+			log.Fatalln(err)
+		}
 	}
 
 	resolvers, err := LoadResolvers(resolversList)
@@ -105,14 +103,10 @@ func Run(config *Config) {
 		log.Fatalln(err)
 	}
 
-	for _, k := range resolvers.Resolvers {
-		_, port, err := net.SplitHostPort(k.Address)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		rport, _ := strconv.Atoi(port)
-		if config.OutboundPort == uint(rport) {
-			pool.NewWorker(k.Address, k.Hostname)
+	// Load each resolver into the pool.
+	for _, resolver := range resolvers.Resolvers {
+		if ok := addHostForPort(resolver.Address, config.OutboundPort); ok {
+			pool.NewWorker(resolver.Address, resolver.Hostname)
 		}
 	}
 
@@ -120,6 +114,13 @@ func Run(config *Config) {
 	for {
 		buff := make([]byte, 512)
 		n, clientAddr, _ := conn.ReadFromUDP(buff)
+
+		// Potential to catch small packets here.
+		if n < 12 {
+			log.Println("Packet length too small")
+			continue
+		}
+
 		packet := Packet{
 			clientAddr: clientAddr,
 			clientConn: conn,
@@ -145,9 +146,9 @@ func resolve(p *Pool, packet Packet) {
 		if blacklist.Exists(name) {
 			log.Printf("\x1b[31;1m[blacklist] Match: %s\x1b[0m\n", name)
 			// Reform the query as a response with 0 answers.
-			first := append(packet.packetData[:2], []byte{0x81, 0x83}...)
-			j := append(first, packet.packetData[4:]...)
-			packet.clientConn.WriteToUDP(j, packet.clientAddr)
+			transIDFlags := append(packet.packetData[:2], []byte{0x81, 0x83}...)
+			newPacket := append(transIDFlags, packet.packetData[4:]...)
+			packet.clientConn.WriteToUDP(newPacket, packet.clientAddr)
 			return
 		}
 	}
@@ -156,10 +157,11 @@ func resolve(p *Pool, packet Packet) {
 	if caching {
 		// Create cache key.
 		nameType := sliceNameType(packet.packetData[12:])
-		s := createCacheKey(nameType)
+		cacheKey := createCacheKey(nameType)
 
 		// Get the cached entry if we have one.
-		if resp, ok := queryCache.Get(s); ok {
+		if resp, ok := queryCache.Get(cacheKey); ok {
+			log.Printf("[cache] \x1b[32;1mCache hit for 0x%x\x1b[0m\n", cacheKey)
 			// Prepend the transaction id to the payload.
 			r := append(packet.packetData[:2], resp.(Query).data[2:]...)
 			packet.clientConn.WriteToUDP(r, packet.clientAddr)
@@ -180,20 +182,34 @@ func resolve(p *Pool, packet Packet) {
 
 // parseDomainName takes a slice of bytes and returns a parsed domain name.
 func parseDomainName(data []byte) string {
-	var parts []byte
+	parts := make([]byte, 0)
 	i := 0
 	for {
 		if data[i] == 0x00 {
 			break
 		}
-		if i != 0 {
-			parts = append(parts, []byte{0x2e}...)
+		if i != 0x00 {
+			parts = append(parts, 0x2e)
 		}
 		l := int(data[i])
 		parts = append(parts, data[i+1:i+l+1]...)
-		i += l + 1 // increment to next label offset
+		// Increment to next label offset.
+		i += l + 1
 	}
 	return string(parts)
+}
+
+// addHostForPort matches if a port that is parsed form resolverAddr matches outboundPort.
+func addHostForPort(resolverAddr string, outboundPort uint) bool {
+	_, rport, err := net.SplitHostPort(resolverAddr)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	resolverPort, _ := strconv.Atoi(rport)
+	if outboundPort == uint(resolverPort) {
+		return true
+	}
+	return false
 }
 
 // cleanup handles the exiting of veil.

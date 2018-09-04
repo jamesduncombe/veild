@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"log"
 	"sync"
 	"time"
+)
+
+var (
+	errProblemParsingOffsets = errors.New("problem parsing TTL offsets")
 )
 
 // Query holds the structure for the raw response data and offsets of TTLs.
@@ -22,6 +26,13 @@ type QueryCache struct {
 	queries map[[sha1.Size]byte]Query
 }
 
+// NewQueryCache handles QueryCache initialization.
+func NewQueryCache() *QueryCache {
+	return &QueryCache{
+		queries: make(map[[sha1.Size]byte]Query),
+	}
+}
+
 // Put puts an entry into the response cache.
 func (r *QueryCache) Put(key [sha1.Size]byte, value Query) {
 	r.mu.Lock()
@@ -34,7 +45,6 @@ func (r *QueryCache) Get(key [sha1.Size]byte) (interface{}, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if val, ok := r.queries[key]; ok {
-		log.Printf("[cache] \x1b[32;1mCache hit for 0x%x\x1b[0m\n", key)
 		return val, true
 	}
 	return nil, false
@@ -43,33 +53,43 @@ func (r *QueryCache) Get(key [sha1.Size]byte) (interface{}, bool) {
 // Reaper ticks over every second and runs through the TTL decrements.
 func (r *QueryCache) Reaper() {
 	for {
-		mm := 0
-		t := time.Now()
-
-		r.mu.Lock() // Lock first
-		for k, v := range r.queries {
-			if newData, l := decTTL(v.data, v.offsets, 1); l {
-				r.queries[k] = Query{newData, v.offsets}
-				mm += len(v.offsets)
-				continue
-			}
-			delete(r.queries, k)
-		}
-		r.mu.Unlock() // Remove lock
-
-		elapsed := time.Since(t)
-		numEntries := len(r.queries)
-
-		log.Printf("[cache] Spent in loop: %v - entries: %d\n", elapsed, numEntries)
-
-		time.Sleep(time.Second)
+		r.reaper()
 	}
 }
 
-// ttlRipper scans a DNS records and returns offsets of all the TTLs within it.
-func ttlRipper(data []byte) []int {
+func (r *QueryCache) reaper() {
+	mm := 0
+	t := time.Now()
+
+	r.mu.Lock()
+	for k, v := range r.queries {
+		if newRecord, ok := decTTL(v.data, v.offsets, 1); ok {
+			r.queries[k] = Query{newRecord, v.offsets}
+			mm += len(v.offsets)
+			continue
+		}
+		delete(r.queries, k)
+	}
+	r.mu.Unlock()
+
+	elapsed := time.Since(t)
+	numEntries := len(r.queries)
+
+	log.Printf("[cache] Spent in loop: %v - entries: %d\n", elapsed, numEntries)
+
+	time.Sleep(time.Second)
+}
+
+// ttlOffsets scans a DNS records and returns offsets of all the TTLs within it.
+func ttlOffsets(data []byte) ([]int, error) {
 
 	byteOffsets := []int{}
+
+	// Get total answers etc.
+	answers := binary.BigEndian.Uint16(data[6:8])
+	authority := binary.BigEndian.Uint16(data[8:10])
+	additional := binary.BigEndian.Uint16(data[10:12])
+	total := int(answers + authority + additional)
 
 	// Skip first 12 bytes (always the header, no TTLs).
 	startOffset := 12
@@ -78,17 +98,18 @@ func ttlRipper(data []byte) []int {
 	i += 5 // jump 1 + 4 more bytes (Type and Class).
 	startOfAnswers := i + startOffset
 
-	length := len(data) // size of payload
-
-	for length > startOfAnswers {
+	for n := 0; n < total; n++ {
 		for {
+			if len(data) < startOfAnswers+1 {
+				return nil, errProblemParsingOffsets
+			}
 			marker := data[startOfAnswers : startOfAnswers+1]
 			if bytes.Equal(marker, []byte{0xc0}) {
-				// pointer ref, only 2 bytes
+				// Pointer ref, only 2 bytes.
 				startOfAnswers += 2
 				break
 			} else if bytes.Equal(marker, []byte{0x00}) {
-				// end of record
+				// End of record.
 				startOfAnswers++
 				break
 			} else {
@@ -96,19 +117,25 @@ func ttlRipper(data []byte) []int {
 			}
 		}
 
-		startOfAnswers += 4 // skip over type and class
+		// Skip over type and class.
+		startOfAnswers += 4
 
-		// TTL
+		// Before appending make sure this is a sane offset.
+		if startOfAnswers > len(data) {
+			return nil, errProblemParsingOffsets
+		}
+
+		// TTL.
 		byteOffsets = append(byteOffsets, startOfAnswers)
 		startOfAnswers += 4
 
-		// data length
+		// Data length.
 		le := binary.BigEndian.Uint16(data[startOfAnswers : startOfAnswers+2])
 		startOfAnswers += 2
 		startOfAnswers += int(le)
 	}
 
-	return byteOffsets
+	return byteOffsets, nil
 }
 
 // createCacheKey generates a cache key from a given name and rtype (in bytes).
@@ -118,13 +145,6 @@ func createCacheKey(key []byte) [sha1.Size]byte {
 
 // decTTL decrements a responses TTL by n seconds.
 func decTTL(data []byte, offsets []int, n int) ([]byte, bool) {
-	defer func() {
-		// recover from panic if one occured. Set err to nil otherwise.
-		if err := recover(); err != nil {
-			fmt.Println(err)
-			fmt.Printf("Data at point of problem: %x - offsets: %v\n", data, offsets)
-		}
-	}()
 	for _, offset := range offsets {
 		m := binary.BigEndian.Uint32(data[offset : offset+4])
 		if m-uint32(n) == uint32(0) {

@@ -15,7 +15,7 @@ type Worker struct {
 	closed     bool
 }
 
-// Pool is a new connection pool.
+// Pool represents a new connection pool.
 type Pool struct {
 	mu        sync.RWMutex
 	workers   chan Worker
@@ -68,9 +68,7 @@ func (p *Pool) ConnectionManagement() {
 func (p *Pool) worker(w Worker) {
 
 	// Each pconn has it's own ResponseCache.
-	responseCache := &ResponseCache{
-		responses: make(map[uint16]Packet),
-	}
+	responseCache := NewResponseCache()
 
 	// Start a new connection.
 	pconn, err := NewPConn(p, responseCache, w.host, w.serverName)
@@ -114,7 +112,7 @@ func (p *Pool) Dispatch() {
 					worker.requests <- packet
 					p.workers <- worker
 				}
-			// We're bang out of luck :()
+			// We're out of luck.
 			default:
 				p.packets <- packet
 				log.Println("[pool] No workers left")

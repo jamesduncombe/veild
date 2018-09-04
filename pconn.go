@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/binary"
-	"io"
 	"log"
 	"time"
 )
@@ -41,12 +40,13 @@ retry:
 	conn, err := dialConn(host, serverName)
 	if err != nil {
 		log.Printf("[pconn] Failed to connect to: %s, retrying in %d seconds\n", host, t)
-		// Back off for t servers (exponential backoff).
+		// Back off for t seconds (exponential backoff).
 		time.Sleep(t * time.Second)
 		t = t << 1
 		goto retry
 	}
 
+	// Assign the underlying connection.
 	pc.conn = conn
 
 	go pc.readLoop()
@@ -73,26 +73,31 @@ func (p *PConn) readLoop() {
 		close(p.closech)
 	}()
 
-	alive := true
-	for alive {
+	for {
 
 		buff := make([]byte, 512)
 		n, err := p.conn.Read(buff)
-		if err == io.EOF {
+		// On any error exit.
+		if err != nil {
 			log.Printf("[pconn] Connection gone away: %s\n", p.host)
-			alive = false
-			continue
+			break
 		}
 
 		reqID := binary.BigEndian.Uint16(buff[2:4])
 
 		if val, ok := p.cache.Get(reqID); ok {
 
+			log.Printf("[rcache] Match for \x1b[31;1m0x%x\x1b[0m\n", reqID)
+
 			if caching {
 				// Write response to cache.
 				nameType := sliceNameType(buff[2+12 : n])
 				s := createCacheKey(nameType)
-				offsets := ttlRipper(buff[2:n])
+				offsets, err := ttlOffsets(buff[2:n])
+				if err != nil {
+					log.Printf("\x1b[35;1m[cache] %v\x1b[0m\n", err)
+					continue
+				}
 				queryCache.Put(s, Query{buff[2:n], offsets})
 			}
 
