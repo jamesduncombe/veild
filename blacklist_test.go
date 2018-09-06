@@ -7,7 +7,7 @@ import (
 func TestBlacklist_NewBlacklist(t *testing.T) {
 	_, err := NewBlacklist("nonexistantfile.txt")
 	if err == nil {
-		t.Error("non-existance blacklist, should error")
+		t.Error("non-existence blacklist, should error")
 	}
 }
 

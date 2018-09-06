@@ -12,7 +12,7 @@ func TestResolvers_NewResolvers(t *testing.T) {
 }
 
 func TestResolvers_NewResolversErr(t *testing.T) {
-	_, err := NewResolvers("non-existant file")
+	_, err := NewResolvers("non-existent file")
 	if err == nil {
 		t.Error("should fail on non-parseable YAML")
 	}
