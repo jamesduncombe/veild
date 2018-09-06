@@ -2,7 +2,6 @@
 package veild
 
 import (
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -87,18 +86,8 @@ func Run(config *Config) {
 	go pool.ConnectionManagement()
 	go pool.Dispatch()
 
-	// Add workers to the pooler.
-	resolversList := []byte{}
-	if config.ResolversFile == "" {
-		log.Println("[pool] No resolvers file given, using default (1.1.1.1 and 1.0.0.1)")
-		resolversList = []byte(defaultResolver)
-	} else {
-		if resolversList, err = ioutil.ReadFile(config.ResolversFile); err != nil {
-			log.Fatalln(err)
-		}
-	}
-
-	resolvers, err := LoadResolvers(resolversList)
+	// Load the list of resolvers.
+	resolvers, err := NewResolvers(config.ResolversFile)
 	if err != nil {
 		log.Fatalln(err)
 	}

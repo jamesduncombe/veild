@@ -1,20 +1,18 @@
 package veild
 
 import (
-	"io/ioutil"
 	"testing"
 )
 
-func TestResolvers_LoadResolvers(t *testing.T) {
-	d, _ := ioutil.ReadFile("fixtures/test_resolvers.yml")
-	_, err := LoadResolvers(d)
+func TestResolvers_NewResolvers(t *testing.T) {
+	_, err := NewResolvers("fixtures/test_resolvers.yml")
 	if err != nil {
 		t.Error("should be parseable")
 	}
 }
 
-func TestResolvers_LoadResolversErr(t *testing.T) {
-	_, err := LoadResolvers([]byte("can't parse"))
+func TestResolvers_NewResolversErr(t *testing.T) {
+	_, err := NewResolvers("non-existant file")
 	if err == nil {
 		t.Error("should fail on non-parseable YAML")
 	}

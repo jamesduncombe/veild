@@ -2,7 +2,6 @@ package veild
 
 import (
 	"bufio"
-	"io"
 	"os"
 	"regexp"
 	"sync"
@@ -11,23 +10,20 @@ import (
 // Blacklist represents a blacklist.
 type Blacklist struct {
 	mu   sync.Mutex
-	list map[string]string
+	list map[string]struct{}
 }
 
 // NewBlacklist creates a new Blacklist from a given hosts file.
 func NewBlacklist(blacklistPath string) (*Blacklist, error) {
 
-	// Init the blacklist.
-	file, err := os.Open(blacklistPath)
+	// Parse and load the blacklist.
+	blacklist, err := parseBlacklist(blacklistPath)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
-
-	list := ParseBlacklist(file)
 
 	return &Blacklist{
-		list: list,
+		list: blacklist,
 	}, nil
 }
 
@@ -41,23 +37,27 @@ func (b *Blacklist) Exists(item string) bool {
 	return false
 }
 
-// ParseBlacklist handles parsing of a hosts file.
-func ParseBlacklist(file io.Reader) map[string]string {
+// parseBlacklist handles parsing of a hosts file.
+func parseBlacklist(blacklistPath string) (map[string]struct{}, error) {
 
-	list := make(map[string]string)
+	blacklistFile, err := os.Open(blacklistPath)
+	if err != nil {
+		return nil, err
+	}
+	defer blacklistFile.Close()
+
+	blacklist := make(map[string]struct{})
 	pattern := regexp.MustCompile(`^[^#].+\s+([A-Za-z\-0-9\.]+)$`)
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(blacklistFile)
 
 	for scanner.Scan() {
 		text := scanner.Text()
-
-		// Match on the regex.
 		match := pattern.FindStringSubmatch(text)
 		if len(match) > 1 {
-			list[match[1]] = match[1]
+			blacklist[match[1]] = struct{}{}
 		}
 
 	}
 
-	return list
+	return blacklist, nil
 }
