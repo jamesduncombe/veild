@@ -54,7 +54,7 @@ When your OS is set to use veild you should start to see some activity in the co
 
 The `resolvers.yml` file which you'll see in the archieve also gives you the ability to enable/disable DNS resolvers as needed. I've added comments in there which should explain things.
 
-### Outbound port
+### Outbound port
 
 You can specify an outbound port (instead of the default `853` DNS-over-TLS port) by using the `-p` flag when starting veild.
 
