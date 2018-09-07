@@ -10,8 +10,10 @@ import (
 	"time"
 )
 
+// Errors in the query cache.
 var (
-	errProblemParsingOffsets = errors.New("problem parsing TTL offsets")
+	// ErrProblemParsingOffsets is returned when a TTL offset cannot be parsed.
+	ErrProblemParsingOffsets = errors.New("problem parsing TTL offsets")
 )
 
 // Query holds the structure for the raw response data and offsets of TTLs.
@@ -101,7 +103,7 @@ func ttlOffsets(data []byte) ([]int, error) {
 	for n := 0; n < total; n++ {
 		for {
 			if len(data) < startOfAnswers+1 {
-				return nil, errProblemParsingOffsets
+				return nil, ErrProblemParsingOffsets
 			}
 			marker := data[startOfAnswers : startOfAnswers+1]
 			if bytes.Equal(marker, []byte{0xc0}) {
@@ -122,7 +124,7 @@ func ttlOffsets(data []byte) ([]int, error) {
 
 		// Before appending make sure this is a sane offset.
 		if startOfAnswers > len(data) {
-			return nil, errProblemParsingOffsets
+			return nil, ErrProblemParsingOffsets
 		}
 
 		// TTL.
