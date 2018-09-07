@@ -39,7 +39,7 @@ func NewRR(data []byte) (*RR, error) {
 
 	nameType := sliceNameType(data)
 	host := parseDomainName(nameType[:len(nameType)-2])
-	rtype := binary.BigEndian.Uint16(nameType[len(nameType)-2 : len(nameType)])
+	rtype := binary.BigEndian.Uint16(nameType[len(nameType)-2:])
 
 	if rType, ok := ResourceTypes[rtype]; ok {
 		return &RR{
