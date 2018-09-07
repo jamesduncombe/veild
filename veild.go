@@ -58,9 +58,10 @@ func Run(config *Config) {
 	// Setup caching.
 	if config.Caching {
 		caching = true
-		log.Println("[cache] \x1b[31;1mCaching on\x1b[0m")
 		queryCache = NewQueryCache()
 		go queryCache.Reaper()
+	} else {
+		log.Println("[cache] \x1b[31;1mCaching off\x1b[0m")
 	}
 
 	// Setup goroutine for handling the exit signals.
