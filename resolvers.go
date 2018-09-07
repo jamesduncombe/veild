@@ -8,11 +8,11 @@ import (
 
 // defaultResolver is a YML config for DNS resolvers if no resolvers file is given.
 const defaultResolver = `
-	resolvers:
-		- address: "1.1.1.1:853"
-			hostname: "cloudflare-dns.com"
-		- address: "1.0.0.1:853"
-			hostname: "cloudflare-dns.com"
+resolvers:
+  - address: "1.1.1.1:853"
+    hostname: "cloudflare-dns.com"
+  - address: "1.0.0.1:853"
+    hostname: "cloudflare-dns.com"
 `
 
 // Resolver implements a resolver.
