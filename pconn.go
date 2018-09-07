@@ -1,7 +1,6 @@
 package veild
 
 import (
-	"bytes"
 	"crypto/tls"
 	"encoding/binary"
 	"log"
@@ -75,7 +74,7 @@ func (p *PConn) readLoop() {
 
 	for {
 
-		buff := make([]byte, 512)
+		buff := make([]byte, PacketLength)
 		n, err := p.conn.Read(buff)
 		// On any error exit.
 		if err != nil {
@@ -142,15 +141,4 @@ func (p *PConn) writeLoop() {
 		}
 	}
 
-}
-
-// sliceNameType takes a DNS request and slices out the name + type of the request.
-// This is mainly used for the cache key when storing a request.
-func sliceNameType(packet []byte) []byte {
-	// Scan for end of name (0x00).
-	if i := bytes.IndexByte(packet, 0x00); i != -1 {
-		// Return the name and type.
-		return packet[:i+3]
-	}
-	return []byte{}
 }

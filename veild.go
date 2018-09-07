@@ -36,6 +36,14 @@ var (
 	blacklisting = false
 )
 
+const (
+	// PacketLength is the maximum allowed packet length for a DNS packet.
+	PacketLength int = 512
+
+	// HeaderLength is the length of a normal DNS request/response header (in bytes).
+	HeaderLength int = 12
+)
+
 // Run starts up the app.
 func Run(config *Config) {
 
@@ -102,11 +110,11 @@ func Run(config *Config) {
 
 	// Enter the listening loop.
 	for {
-		buff := make([]byte, 512)
+		buff := make([]byte, PacketLength)
 		n, clientAddr, _ := conn.ReadFromUDP(buff)
 
 		// Potential to catch small packets here.
-		if n < 12 {
+		if n < HeaderLength {
 			log.Println("Packet length too small")
 			continue
 		}
@@ -129,12 +137,18 @@ func Run(config *Config) {
 // resolve handles individual requests.
 func resolve(p *Pool, packet Packet) {
 
+	rr, err := NewRR(packet.packetData[HeaderLength:])
+	if err != nil {
+		log.Println("[main] Problem handling RR")
+		return
+	}
+	log.Printf("[main] Request for host: \x1b[31;1m%s\x1b[0m rtype: \x1b[31;1m%s\x1b[0m\n", rr.hostname, rr.rType)
+
 	// Handle blacklisted domains if enabled.
 	// See: https://en.wikipedia.org/wiki/DNS_sinkhole
 	if blacklisting {
-		name := parseDomainName(packet.packetData[12:])
-		if blacklist.Exists(name) {
-			log.Printf("\x1b[31;1m[blacklist] Match: %s\x1b[0m\n", name)
+		if blacklist.Exists(rr.hostname) {
+			log.Printf("\x1b[31;1m[blacklist] Match: %s\x1b[0m\n", rr.hostname)
 			// Reform the query as a response with 0 answers.
 			transIDFlags := append(packet.packetData[:2], []byte{0x81, 0x83}...)
 			newPacket := append(transIDFlags, packet.packetData[4:]...)
@@ -146,12 +160,11 @@ func resolve(p *Pool, packet Packet) {
 	// Handle caching if enabled.
 	if caching {
 		// Create cache key.
-		nameType := sliceNameType(packet.packetData[12:])
-		cacheKey := createCacheKey(nameType)
+		cacheKey := createCacheKey(rr.cacheKey)
 
 		// Get the cached entry if we have one.
 		if resp, ok := queryCache.Get(cacheKey); ok {
-			log.Printf("[cache] \x1b[32;1mCache hit for 0x%x\x1b[0m\n", cacheKey)
+			log.Printf("[cache] \x1b[32;1mCache hit for host: %s rtype: %s\x1b[0m\n", rr.hostname, rr.rType)
 			// Prepend the transaction id to the payload.
 			r := append(packet.packetData[:2], resp.(Query).data[2:]...)
 			packet.clientConn.WriteToUDP(r, packet.clientAddr)
@@ -168,25 +181,6 @@ func resolve(p *Pool, packet Packet) {
 		p.packets <- packet
 	}
 
-}
-
-// parseDomainName takes a slice of bytes and returns a parsed domain name.
-func parseDomainName(data []byte) string {
-	parts := make([]byte, 0)
-	i := 0
-	for {
-		if data[i] == 0x00 {
-			break
-		}
-		if i != 0x00 {
-			parts = append(parts, 0x2e)
-		}
-		l := int(data[i])
-		parts = append(parts, data[i+1:i+l+1]...)
-		// Increment to next label offset.
-		i += l + 1
-	}
-	return string(parts)
 }
 
 // addHostForPort matches if a port that is parsed from resolverAddr matches outboundPort.
