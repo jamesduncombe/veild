@@ -23,7 +23,7 @@ Thanks to the following sites/RFCs:
 
 ## Usage
 
-The quickest and easiest way to get started, assuming you've extracted the archieve and are in the directory:
+The quickest and easiest way to get started, assuming you've extracted the archive and are in the directory:
 
 ```sh
 sudo ./veild
@@ -31,7 +31,7 @@ sudo ./veild
 
 This will start `veild` with caching on and a resolvers set to [Cloudflare's](https://developers.cloudflare.com/1.1.1.1/dns-over-tls/) `1.1.1.1` and `1.0.0.1`.
 
-Why do I need sudo?! Well, by default veild listens on port `53` (UDP) which is within the priveledged ports range... more on that [here](https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html).
+Why do I need sudo?! Well, by default veild listens on port `53` (UDP) which is within the privileged ports range... more on that [here](https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html).
 
 Hopefully you should see it startup with output similar to the following:
 
@@ -54,7 +54,7 @@ When your OS is set to use veild you should start to see some activity in the co
 
 ### Resolvers
 
-The `resolvers.yml` file which you'll see in the archieve also gives you the ability to enable/disable DNS resolvers as needed. I've added comments in there which should explain things.
+The `resolvers.yml` file which you'll see in the archive also gives you the ability to enable/disable DNS resolvers as needed. I've added comments in there which should explain things.
 
 ### Outbound port
 
