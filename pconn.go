@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// ResponsePacketLength represents the buff size for the response packet.
+const ResponsePacketLength = 2048
+
 // PConn holds persistent connections.
 type PConn struct {
 	t          *Pool
@@ -74,7 +77,7 @@ func (p *PConn) readLoop() {
 
 	for {
 
-		buff := make([]byte, PacketLength)
+		buff := make([]byte, ResponsePacketLength)
 		n, err := p.conn.Read(buff)
 		// On any error exit.
 		if err != nil {
