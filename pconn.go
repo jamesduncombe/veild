@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/binary"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -12,6 +13,7 @@ const ResponsePacketLength = 2048
 
 // PConn holds persistent connections.
 type PConn struct {
+	mu         sync.RWMutex
 	t          *Pool
 	host       string
 	serverName string
@@ -70,6 +72,10 @@ func dialConn(host, serverName string) (*tls.Conn, error) {
 func (p *PConn) readLoop() {
 
 	defer func() {
+		// Lock needed due to accessing times.
+		p.mu.Lock()
+		defer p.mu.Unlock()
+
 		log.Printf("[pconn] Closing connection: %s since last request: %v connection lasted: %v\n", p.host, time.Since(p.lastReq), time.Since(p.start))
 		p.conn.Close()
 		close(p.closech)
@@ -125,7 +131,9 @@ func (p *PConn) writeLoop() {
 		case wr := <-p.writech:
 
 			// Overwrite time of last request.
+			p.mu.Lock()
 			p.lastReq = time.Now()
+			p.mu.Unlock()
 
 			// Calculate packet length and pack into uint16 (BigEndian).
 			rawLen := len(wr.packetData)
