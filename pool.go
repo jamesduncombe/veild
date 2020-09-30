@@ -2,6 +2,7 @@ package veild
 
 import (
 	"log"
+	"os"
 	"sync"
 	"time"
 )
@@ -21,6 +22,7 @@ type Pool struct {
 	workers   chan Worker
 	reconnect chan Worker
 	packets   chan Packet
+	log       *log.Logger
 }
 
 // NewPool creates a new connection pool.
@@ -29,6 +31,7 @@ func NewPool() *Pool {
 		workers:   make(chan Worker, 10),
 		reconnect: make(chan Worker, 10),
 		packets:   make(chan Packet, 10),
+		log:       log.New(os.Stdout, "[pool] ", log.LstdFlags|log.Lmsgprefix),
 	}
 }
 
@@ -48,7 +51,7 @@ func (p *Pool) NewWorker(host, serverName string) {
 // Stats prints out connection stats every x seconds.
 func (p *Pool) Stats() {
 	for {
-		log.Printf("[pool] [stats] Packets: %d, Reconnections: %d, Workers: %d\n", len(p.packets), len(p.reconnect), len(p.workers))
+		p.log.Printf(" [stats] Packets: %d, Reconnections: %d, Workers: %d\n", len(p.packets), len(p.reconnect), len(p.workers))
 		time.Sleep(10 * time.Second)
 	}
 }
@@ -58,7 +61,7 @@ func (p *Pool) ConnectionManagement() {
 	for {
 		select {
 		case reconnect := <-p.reconnect:
-			log.Printf("[pool] Reconnecting %s\n", reconnect.host)
+			p.log.Printf("Reconnecting %s\n", reconnect.host)
 			p.NewWorker(reconnect.host, reconnect.serverName)
 		}
 	}
@@ -73,7 +76,7 @@ func (p *Pool) worker(w Worker) {
 	// Start a new connection.
 	pconn, err := NewPConn(p, responseCache, w.host, w.serverName)
 	if err != nil {
-		log.Printf("[pool] Failed to add a new connection to %s\n", w.host)
+		p.log.Printf("Failed to add a new connection to %s\n", w.host)
 		return
 	}
 
@@ -81,7 +84,7 @@ func (p *Pool) worker(w Worker) {
 	for {
 		select {
 		case <-pconn.closech:
-			log.Println("[pool] PConn gone")
+			p.log.Println("PConn gone")
 			w.done <- struct{}{}
 			return
 		case req := <-w.requests:
@@ -99,11 +102,11 @@ func (p *Pool) Dispatch() {
 			select {
 			// Grab a worker.
 			case worker := <-p.workers:
-				log.Printf("[pool] Worker: %s\n", worker.host)
+				p.log.Printf("Worker: %s\n", worker.host)
 				select {
 				// If the worker is done, then requeue the packet and also raise a reconnection attempt.
 				case <-worker.done:
-					log.Printf("[pool] Worker down: %s\n", worker.host)
+					p.log.Printf("Worker down: %s\n", worker.host)
 					p.reconnect <- worker
 					p.packets <- packet
 					// Else, write the packet to the workers queue.
@@ -115,7 +118,7 @@ func (p *Pool) Dispatch() {
 			// We're out of luck.
 			default:
 				p.packets <- packet
-				log.Println("[pool] No workers left")
+				p.log.Println("No workers left")
 				time.Sleep(2 * time.Second)
 			}
 		// Every 5 seconds or there abouts check each worker in turn
@@ -124,7 +127,7 @@ func (p *Pool) Dispatch() {
 			worker := <-p.workers
 			select {
 			case <-worker.done:
-				log.Printf("[pool] Worker %s gone, reconnecting.", worker.host)
+				p.log.Printf("Worker %s gone, reconnecting.", worker.host)
 				p.reconnect <- worker
 			default:
 				p.workers <- worker
