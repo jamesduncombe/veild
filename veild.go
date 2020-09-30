@@ -163,11 +163,11 @@ func resolve(p *Pool, packet Packet) {
 		cacheKey := createCacheKey(rr.cacheKey)
 
 		// Get the cached entry if we have one.
-		if resp, ok := queryCache.Get(cacheKey); ok {
+		if data, ok := queryCache.Get(cacheKey); ok {
 			log.Printf("[cache] \x1b[32;1mCache hit for host: %s rtype: %s\x1b[0m\n", rr.hostname, rr.rType)
 			// Prepend the transaction id to the payload.
-			r := append(packet.packetData[:2], resp.(Query).data[2:]...)
-			packet.clientConn.WriteToUDP(r, packet.clientAddr)
+			responsePacket := append(packet.packetData[:2], data[2:]...)
+			packet.clientConn.WriteToUDP(responsePacket, packet.clientAddr)
 			return
 		}
 	}
