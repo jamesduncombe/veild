@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"io/ioutil"
 	"testing"
+	"time"
 )
 
 func TestQueryCache_NewQueryCache(t *testing.T) {
@@ -36,7 +37,7 @@ func TestQueryCache_Reaper(t *testing.T) {
 	nameType := sliceNameType(file[12:n])
 	s := createCacheKey(nameType)
 	offsets, _ := ttlOffsets(file[:n])
-	queryCache.Put(s, Query{file[:n], offsets})
+	queryCache.Put(s, Query{file[:n], offsets, time.Now()})
 	queryCache.reaper()
 }
 

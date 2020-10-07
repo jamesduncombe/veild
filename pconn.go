@@ -106,7 +106,7 @@ func (p *PConn) readLoop() {
 					log.Printf("\x1b[35;1m[cache] %v\x1b[0m\n", err)
 					continue
 				}
-				queryCache.Put(s, Query{buff[2:n], offsets})
+				queryCache.Put(s, Query{buff[2:n], offsets, time.Now()})
 			}
 
 			// Shave off first 2 bytes for the length and write back to client over UDP.

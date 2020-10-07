@@ -18,13 +18,14 @@ var (
 
 // Query holds the structure for the raw response data and offsets of TTLs.
 type Query struct {
-	data    []byte
-	offsets []int
+	data     []byte
+	offsets  []int
+	creation time.Time
 }
 
 // QueryCache holds the main structure of the query cache.
 type QueryCache struct {
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	queries map[[sha1.Size]byte]Query
 }
 
@@ -43,13 +44,23 @@ func (r *QueryCache) Put(key [sha1.Size]byte, value Query) {
 }
 
 // Get gets an entry from the query cache.
-func (r *QueryCache) Get(key [sha1.Size]byte) (interface{}, bool) {
+func (r *QueryCache) Get(key [sha1.Size]byte) ([]byte, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if val, ok := r.queries[key]; ok {
-		return val, true
+	if v, ok := r.queries[key]; ok {
+		// Try decrementing the TTL by n seconds.
+		decBy := int(time.Now().Sub(v.creation).Seconds())
+		// Make a copy of our underlying array. Preventing a sneaky data race!
+		b := make([]byte, len(v.data))
+		copy(b, v.data)
+		if newRecord, ok := decTTL(b, v.offsets, decBy); ok {
+			return newRecord, true
+		}
+		// Remove it, must be too old.
+		log.Printf("\x1b[31;1m[cache_get] Removing: 0x%x\x1b[0m\n", key)
+		delete(r.queries, key)
 	}
-	return nil, false
+	return []byte{}, false
 }
 
 // Reaper ticks over every second and runs through the TTL decrements.
@@ -60,22 +71,23 @@ func (r *QueryCache) Reaper() {
 }
 
 func (r *QueryCache) reaper() {
-	mm := 0
 	t := time.Now()
 
 	r.mu.Lock()
 	for k, v := range r.queries {
-		if newRecord, ok := decTTL(v.data, v.offsets, 1); ok {
-			r.queries[k] = Query{newRecord, v.offsets}
-			mm += len(v.offsets)
+		now := time.Now()
+		decBy := int(now.Sub(v.creation).Seconds())
+		if newRecord, ok := decTTL(v.data, v.offsets, decBy); ok {
+			r.queries[k] = Query{newRecord, v.offsets, now}
 			continue
 		}
+		// log.Printf("\x1b[31;1m[cache] Removing: 0x%x\x1b[0m\n", k)
 		delete(r.queries, k)
 	}
-	r.mu.Unlock()
 
 	elapsed := time.Since(t)
 	numEntries := len(r.queries)
+	r.mu.Unlock()
 
 	log.Printf("[cache] Spent in loop: %v - entries: %d\n", elapsed, numEntries)
 
@@ -149,7 +161,7 @@ func createCacheKey(key []byte) [sha1.Size]byte {
 func decTTL(data []byte, offsets []int, n int) ([]byte, bool) {
 	for _, offset := range offsets {
 		m := binary.BigEndian.Uint32(data[offset : offset+4])
-		if m-uint32(n) == uint32(0) {
+		if m <= uint32(n) {
 			return nil, false
 		}
 		k := make([]byte, 4)
