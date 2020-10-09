@@ -49,7 +49,7 @@ func (r *QueryCache) Get(key [sha1.Size]byte) ([]byte, bool) {
 	defer r.mu.Unlock()
 	if v, ok := r.queries[key]; ok {
 		// Try decrementing the TTL by n seconds.
-		decBy := int(time.Now().Sub(v.creation).Seconds())
+		decBy := uint32(time.Now().Sub(v.creation).Seconds())
 		// Make a copy of our underlying array. Preventing a sneaky data race!
 		b := make([]byte, len(v.data))
 		copy(b, v.data)
@@ -76,7 +76,7 @@ func (r *QueryCache) reaper() {
 	r.mu.Lock()
 	for k, v := range r.queries {
 		now := time.Now()
-		decBy := int(now.Sub(v.creation).Seconds())
+		decBy := uint32(now.Sub(v.creation).Seconds())
 		if newRecord, ok := decTTL(v.data, v.offsets, decBy); ok {
 			r.queries[k] = Query{newRecord, v.offsets, now}
 			continue
@@ -158,18 +158,18 @@ func createCacheKey(key []byte) [sha1.Size]byte {
 }
 
 // decTTL decrements a responses TTL by n seconds.
-func decTTL(data []byte, offsets []int, n int) ([]byte, bool) {
+func decTTL(data []byte, offsets []int, decrementBy uint32) ([]byte, bool) {
 	for _, offset := range offsets {
-		m := binary.BigEndian.Uint32(data[offset : offset+4])
-		if m <= uint32(n) {
+		currentTTL := binary.BigEndian.Uint32(data[offset : offset+4])
+		if currentTTL-decrementBy == uint32(0) {
 			return nil, false
 		}
-		k := make([]byte, 4)
-		binary.BigEndian.PutUint32(k, m-uint32(n))
-		data[offset] = k[0]
-		data[offset+1] = k[1]
-		data[offset+2] = k[2]
-		data[offset+3] = k[3]
+		newTTL := make([]byte, 4)
+		binary.BigEndian.PutUint32(newTTL, currentTTL-decrementBy)
+		data[offset] = newTTL[0]
+		data[offset+1] = newTTL[1]
+		data[offset+2] = newTTL[2]
+		data[offset+3] = newTTL[3]
 	}
 	return data, true
 }
