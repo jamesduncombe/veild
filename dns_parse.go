@@ -24,6 +24,10 @@ var ResourceTypes = map[uint16]string{
 	16:  "TXT",
 	28:  "AAAA",
 	33:  "SRV",
+	37:  "CERT",
+	60:  "CDNSKEY",
+	64:  "SVCB",
+	65:  "HTTPS",
 	255: "ANY",
 	257: "CAA",
 }
