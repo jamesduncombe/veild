@@ -1,7 +1,7 @@
 package veild
 
 import (
-	"io/ioutil"
+	"os"
 
 	"gopkg.in/yaml.v2"
 )
@@ -38,7 +38,7 @@ func NewResolvers(resolversPath string) (*Resolvers, error) {
 	if resolversPath == "" {
 		resolversList = []byte(defaultResolver)
 	} else {
-		resolversList, err = ioutil.ReadFile(resolversPath)
+		resolversList, err = os.ReadFile(resolversPath)
 		if err != nil {
 			return nil, err
 		}

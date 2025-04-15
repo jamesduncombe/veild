@@ -49,7 +49,7 @@ func (r *QueryCache) Get(key [sha1.Size]byte) ([]byte, bool) {
 	defer r.mu.Unlock()
 	if v, ok := r.queries[key]; ok {
 		// Try decrementing the TTL by n seconds.
-		decBy := uint32(time.Now().Sub(v.creation).Seconds())
+		decBy := uint32(time.Since(v.creation).Seconds())
 		// Make a copy of our underlying array. Preventing a sneaky data race!
 		b := make([]byte, len(v.data))
 		copy(b, v.data)

@@ -3,7 +3,7 @@ package veild
 import (
 	"crypto/sha1"
 	"encoding/binary"
-	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 )
@@ -31,7 +31,7 @@ func TestQueryCache_Get(t *testing.T) {
 }
 
 func TestQueryCache_Reaper(t *testing.T) {
-	file, _ := ioutil.ReadFile("fixtures/long_response.bin")
+	file, _ := os.ReadFile("fixtures/long_response.bin")
 	queryCache := NewQueryCache()
 	n := len(file)
 	nameType := sliceNameType(file[12:n])
@@ -42,7 +42,7 @@ func TestQueryCache_Reaper(t *testing.T) {
 }
 
 func TestQueryCache_ttlOffsets(t *testing.T) {
-	file, _ := ioutil.ReadFile("fixtures/long_response.bin")
+	file, _ := os.ReadFile("fixtures/long_response.bin")
 	offsets, _ := ttlOffsets(file)
 	shouldBe := []int{45, 67, 91, 147, 221, 237, 253, 269, 285, 301, 317, 333}
 	for i := range offsets {
@@ -53,7 +53,7 @@ func TestQueryCache_ttlOffsets(t *testing.T) {
 }
 
 func TestQueryCache_ttlOffsets_ExtraData(t *testing.T) {
-	file, _ := ioutil.ReadFile("fixtures/packet_with_extra_data.bin")
+	file, _ := os.ReadFile("fixtures/packet_with_extra_data.bin")
 	offsets, _ := ttlOffsets(file)
 	shouldBe := []int{42, 75}
 	for i := range offsets {
@@ -64,7 +64,7 @@ func TestQueryCache_ttlOffsets_ExtraData(t *testing.T) {
 }
 
 func TestQueryCache_decTTL(t *testing.T) {
-	file, _ := ioutil.ReadFile("fixtures/response.bin")
+	file, _ := os.ReadFile("fixtures/response.bin")
 	// TTL at 60 seconds
 	offsets, _ := ttlOffsets(file)
 	b, _ := decTTL(file, offsets, 1)
@@ -78,8 +78,7 @@ func TestQueryCache_decTTL(t *testing.T) {
 
 func TestQueryCache_createCacheKey(t *testing.T) {
 	k := []byte{0x00}
-	key := createCacheKey(k)
-	if len(key) != sha1.Size {
+	if len(createCacheKey(k)) != sha1.Size {
 		t.Error("key not the right length")
 	}
 }

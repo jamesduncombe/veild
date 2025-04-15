@@ -190,10 +190,7 @@ func addHostForPort(resolverAddr string, outboundPort uint) bool {
 		log.Fatalln(err)
 	}
 	resolverPort, _ := strconv.Atoi(rport)
-	if outboundPort == uint(resolverPort) {
-		return true
-	}
-	return false
+	return outboundPort == uint(resolverPort)
 }
 
 // cleanup handles the exiting of veil.

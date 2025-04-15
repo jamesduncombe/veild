@@ -3,7 +3,6 @@ package veild
 import (
 	"log"
 	"os"
-	"sync"
 	"time"
 )
 
@@ -18,7 +17,6 @@ type Worker struct {
 
 // Pool represents a new connection pool.
 type Pool struct {
-	mu        sync.RWMutex
 	workers   chan Worker
 	reconnect chan Worker
 	packets   chan Packet
@@ -58,12 +56,9 @@ func (p *Pool) Stats() {
 
 // ConnectionManagement management handles reconnects.
 func (p *Pool) ConnectionManagement() {
-	for {
-		select {
-		case reconnect := <-p.reconnect:
-			p.log.Printf("Reconnecting %s\n", reconnect.host)
-			p.NewWorker(reconnect.host, reconnect.serverName)
-		}
+	for reconnect := range p.reconnect {
+		p.log.Printf("Reconnecting %s\n", reconnect.host)
+		p.NewWorker(reconnect.host, reconnect.serverName)
 	}
 }
 
