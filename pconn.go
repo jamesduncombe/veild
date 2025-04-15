@@ -64,7 +64,7 @@ func dialConn(host, serverName string) (*tls.Conn, error) {
 
 	return tls.Dial("tcp", host, &tls.Config{
 		ServerName: serverName,
-		MinVersion: tls.VersionTLS12,
+		MinVersion: tls.VersionTLS13,
 	})
 }
 
