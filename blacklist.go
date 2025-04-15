@@ -2,6 +2,7 @@ package veild
 
 import (
 	"bufio"
+	"log"
 	"os"
 	"regexp"
 	"sync"
@@ -11,6 +12,7 @@ import (
 type Blacklist struct {
 	mu   sync.Mutex
 	list map[string]struct{}
+	log  *log.Logger
 }
 
 // NewBlacklist creates a new Blacklist from a given hosts file.
@@ -24,6 +26,7 @@ func NewBlacklist(blacklistPath string) (*Blacklist, error) {
 
 	return &Blacklist{
 		list: blacklist,
+		log:  log.New(os.Stdout, "[blacklist] ", log.LstdFlags|log.Lmsgprefix),
 	}, nil
 }
 

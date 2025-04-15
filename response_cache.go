@@ -1,6 +1,8 @@
 package veild
 
 import (
+	"log"
+	"os"
 	"sync"
 )
 
@@ -8,12 +10,14 @@ import (
 type ResponseCache struct {
 	mu        sync.Mutex
 	responses map[uint16]Packet
+	log       *log.Logger
 }
 
 // NewResponseCache handles ResponseCache initialization.
 func NewResponseCache() *ResponseCache {
 	return &ResponseCache{
 		responses: make(map[uint16]Packet),
+		log:       log.New(os.Stdout, "[response_cache] ", log.LstdFlags|log.Lmsgprefix),
 	}
 }
 

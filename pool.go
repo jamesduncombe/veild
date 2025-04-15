@@ -49,7 +49,7 @@ func (p *Pool) NewWorker(host, serverName string) {
 // Stats prints out connection stats every x seconds.
 func (p *Pool) Stats() {
 	for {
-		p.log.Printf(" [stats] Packets: %d, Reconnections: %d, Workers: %d\n", len(p.packets), len(p.reconnect), len(p.workers))
+		p.log.Printf("[stats] Packets: %d, Reconnecting: %d, Workers: %d\n", len(p.packets), len(p.reconnect), len(p.workers))
 		time.Sleep(10 * time.Second)
 	}
 }
@@ -69,7 +69,7 @@ func (p *Pool) worker(w Worker) {
 	responseCache := NewResponseCache()
 
 	// Start a new connection.
-	pconn, err := NewPConn(p, responseCache, w.host, w.serverName)
+	pconn, err := NewPConn(responseCache, w.host, w.serverName)
 	if err != nil {
 		p.log.Printf("Failed to add a new connection to %s\n", w.host)
 		return

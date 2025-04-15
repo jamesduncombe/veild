@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/binary"
 	"log"
+	"os"
 	"sync"
 	"time"
 )
@@ -14,7 +15,6 @@ const ResponsePacketLength = 2048
 // PConn holds persistent connections.
 type PConn struct {
 	mu         sync.RWMutex
-	t          *Pool
 	host       string
 	serverName string
 	writech    chan Packet
@@ -23,27 +23,30 @@ type PConn struct {
 	cache      *ResponseCache
 	start      time.Time
 	lastReq    time.Time
+	log        *log.Logger
 }
 
 // NewPConn creates a new PConn which is an actual connection to an upstream DNS server.
-func NewPConn(p *Pool, cache *ResponseCache, host, serverName string) (*PConn, error) {
+func NewPConn(rc *ResponseCache, host, serverName string) (*PConn, error) {
 	pc := &PConn{
-		t:          p,
 		host:       host,
 		serverName: serverName,
 		writech:    make(chan Packet, 1),
 		closech:    make(chan struct{}),
-		cache:      cache,
+		cache:      rc,
 		start:      time.Now(),
 		lastReq:    time.Now(),
+		log:        log.New(os.Stdout, "[pconn] ", log.LstdFlags|log.Lmsgprefix),
 	}
 
 	var t time.Duration = 1
 
 retry:
+	pc.log.Printf("Dialing connection: %s\n", host)
+
 	conn, err := dialConn(host, serverName)
 	if err != nil {
-		log.Printf("[pconn] Failed to connect to: %s, retrying in %d seconds\n", host, t)
+		pc.log.Printf("Failed to connect to: %s, retrying in %d seconds\n", host, t)
 		// Back off for t seconds (exponential backoff).
 		time.Sleep(t * time.Second)
 		t = t << 1
@@ -60,8 +63,6 @@ retry:
 
 // dialConn handles dialing the outbound connection to the underlying DNS server.
 func dialConn(host, serverName string) (*tls.Conn, error) {
-	log.Printf("[pconn] Dialing connection: %s\n", host)
-
 	return tls.Dial("tcp", host, &tls.Config{
 		ServerName: serverName,
 		MinVersion: tls.VersionTLS13,
@@ -69,33 +70,34 @@ func dialConn(host, serverName string) (*tls.Conn, error) {
 }
 
 // readLoop continually tries to read responses from upstream DNS server.
-func (p *PConn) readLoop() {
+func (pc *PConn) readLoop() {
 
 	defer func() {
 		// Lock needed due to accessing times.
-		p.mu.Lock()
-		defer p.mu.Unlock()
+		pc.mu.Lock()
+		defer pc.mu.Unlock()
 
-		log.Printf("[pconn] Closing connection: %s since last request: %v connection lasted: %v\n", p.host, time.Since(p.lastReq), time.Since(p.start))
-		p.conn.Close()
-		close(p.closech)
+		pc.log.Printf("Closing connection: %s since last request: %v connection lasted: %v\n", pc.host, time.Since(pc.lastReq), time.Since(pc.start))
+		pc.conn.Close()
+		close(pc.closech)
 	}()
 
 	for {
 
 		buff := make([]byte, ResponsePacketLength)
-		n, err := p.conn.Read(buff)
+		n, err := pc.conn.Read(buff)
+
 		// On any error exit.
 		if err != nil {
-			log.Printf("[pconn] Connection gone away: %s\n", p.host)
+			pc.log.Printf("Connection gone away: %s\n", pc.host)
 			break
 		}
 
 		reqID := binary.BigEndian.Uint16(buff[2:4])
 
-		if val, ok := p.cache.Get(reqID); ok {
+		if val, ok := pc.cache.Get(reqID); ok {
 
-			log.Printf("[rcache] Match for \x1b[31;1m0x%x\x1b[0m\n", reqID)
+			pc.cache.log.Printf("Match for \x1b[31;1m0x%x\x1b[0m\n", reqID)
 
 			if caching {
 				// Write response to cache.
@@ -103,7 +105,7 @@ func (p *PConn) readLoop() {
 				s := createCacheKey(nameType)
 				offsets, err := ttlOffsets(buff[2:n])
 				if err != nil {
-					log.Printf("\x1b[35;1m[cache] %v\x1b[0m\n", err)
+					pc.cache.log.Printf("\x1b[35;1m%v\x1b[0m\n", err)
 					continue
 				}
 				queryCache.Put(s, Query{buff[2:n], offsets, time.Now()})
@@ -115,7 +117,7 @@ func (p *PConn) readLoop() {
 			// Calculate ellapsed time since start of request.
 			elapsed := time.Since(val.(Packet).start)
 
-			log.Printf("[pool] Trans.ID: \x1b[31;1m0x%x\x1b[0m Query time: \x1b[31;1m%v\x1b[0m\n",
+			pc.log.Printf("[pool] Trans.ID: \x1b[31;1m0x%x\x1b[0m Query time: \x1b[31;1m%v\x1b[0m\n",
 				reqID,
 				elapsed,
 			)
@@ -125,29 +127,29 @@ func (p *PConn) readLoop() {
 }
 
 // writeLoop takes DNS requests and forwards them to the upstream DNS server.
-func (p *PConn) writeLoop() {
+func (pc *PConn) writeLoop() {
 	for {
 		select {
-		case wr := <-p.writech:
+		case wr := <-pc.writech:
 
 			// Overwrite time of last request.
-			p.mu.Lock()
-			p.lastReq = time.Now()
-			p.mu.Unlock()
+			pc.mu.Lock()
+			pc.lastReq = time.Now()
+			pc.mu.Unlock()
 
 			// Calculate packet length and pack into uint16 (BigEndian).
 			rawLen := len(wr.packetData)
 			packetLength := []byte{uint8(rawLen >> 8), uint8(rawLen)}
 
 			// Prepend packet length.
-			p.conn.Write(append(packetLength, wr.packetData...))
+			pc.conn.Write(append(packetLength, wr.packetData...))
 
 			// Add to cache.
 			reqID := binary.BigEndian.Uint16(wr.packetData[:2])
-			p.cache.Put(reqID, wr)
+			pc.cache.Put(reqID, wr)
 
-		case <-p.closech:
-			close(p.writech)
+		case <-pc.closech:
+			close(pc.writech)
 			return
 		}
 	}

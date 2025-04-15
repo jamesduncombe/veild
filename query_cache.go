@@ -5,7 +5,9 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"errors"
+	"io"
 	"log"
+	"os"
 	"sync"
 	"time"
 )
@@ -27,12 +29,14 @@ type Query struct {
 type QueryCache struct {
 	mu      sync.RWMutex
 	queries map[[sha1.Size]byte]Query
+	log     *log.Logger
 }
 
 // NewQueryCache handles QueryCache initialization.
 func NewQueryCache() *QueryCache {
 	return &QueryCache{
 		queries: make(map[[sha1.Size]byte]Query),
+		log:     log.New(os.Stdout, "[query_cache] ", log.LstdFlags|log.Lmsgprefix),
 	}
 }
 
@@ -57,39 +61,39 @@ func (r *QueryCache) Get(key [sha1.Size]byte) ([]byte, bool) {
 			return newRecord, true
 		}
 		// Remove it, must be too old.
-		log.Printf("\x1b[31;1m[cache_get] Removing: 0x%x\x1b[0m\n", key)
+		r.log.Printf("\x1b[31;1m[cache_get] Removing: 0x%x\x1b[0m\n", key)
 		delete(r.queries, key)
 	}
 	return []byte{}, false
 }
 
 // Reaper ticks over every second and runs through the TTL decrements.
-func (r *QueryCache) Reaper() {
+func (qc *QueryCache) Reaper() {
 	for {
-		r.reaper()
+		qc.reaper()
 	}
 }
 
-func (r *QueryCache) reaper() {
+func (qc *QueryCache) reaper() {
 	t := time.Now()
 
-	r.mu.Lock()
-	for k, v := range r.queries {
+	qc.mu.Lock()
+	for k, v := range qc.queries {
 		now := time.Now()
 		decBy := uint32(now.Sub(v.creation).Seconds())
 		if newRecord, ok := decTTL(v.data, v.offsets, decBy); ok {
-			r.queries[k] = Query{newRecord, v.offsets, now}
+			qc.queries[k] = Query{newRecord, v.offsets, now}
 			continue
 		}
-		// log.Printf("\x1b[31;1m[cache] Removing: 0x%x\x1b[0m\n", k)
-		delete(r.queries, k)
+		qc.log.Printf("\x1b[31;1m[cache] Removing: 0x%x\x1b[0m\n", k)
+		delete(qc.queries, k)
 	}
 
 	elapsed := time.Since(t)
-	numEntries := len(r.queries)
-	r.mu.Unlock()
+	numEntries := len(qc.queries)
+	qc.mu.Unlock()
 
-	log.Printf("[cache] Spent in loop: %v - entries: %d\n", elapsed, numEntries)
+	qc.log.Printf("Spent in loop: %v - entries: %d\n", elapsed, numEntries)
 
 	time.Sleep(time.Second)
 }
