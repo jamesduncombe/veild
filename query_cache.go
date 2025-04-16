@@ -106,8 +106,8 @@ func ttlOffsets(data []byte) ([]int, error) {
 	// Get total answers etc.
 	answers := binary.BigEndian.Uint16(data[6:8])
 	authority := binary.BigEndian.Uint16(data[8:10])
-	additional := binary.BigEndian.Uint16(data[10:12])
-	total := int(answers + authority + additional)
+
+	total := int(answers + authority)
 
 	// Skip first 12 bytes (always the header, no TTLs).
 	startOffset := 12
