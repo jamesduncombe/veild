@@ -169,8 +169,12 @@ func resolve(p *Pool, packet Packet, mainLog *log.Logger) {
 		// Get the cached entry if we have one.
 		if data, ok := queryCache.Get(cacheKey); ok {
 			queryCache.log.Printf("\x1b[32;1mCache hit for host: %s rtype: %s\x1b[0m\n", rr.hostname, rr.rType)
+			// TODO: Check that this lock actually works as expected.
+			// Then maybe move the logic into query cache?
+			queryCache.mu.Lock()
 			// Prepend the transaction id to the payload.
 			responsePacket := append(packet.packetData[:2], data[2:]...)
+			queryCache.mu.Unlock()
 			packet.clientConn.WriteToUDP(responsePacket, packet.clientAddr)
 			return
 		}
