@@ -87,6 +87,9 @@ func (pc *PConn) readLoop() {
 		buff := make([]byte, ResponsePacketLength)
 		n, err := pc.conn.Read(buff)
 
+		pc.log.Printf("[debug] Buff used: %v - size: %v\n", n, len(buff))
+		buff = buff[:n]
+
 		// On any error exit.
 		if err != nil {
 			pc.log.Printf("Connection gone away: %s\n", pc.host)
@@ -101,18 +104,23 @@ func (pc *PConn) readLoop() {
 
 			if caching {
 				// Write response to cache.
-				nameType := sliceNameType(buff[2+12 : n])
-				s := createCacheKey(nameType)
-				offsets, err := ttlOffsets(buff[2:n])
+				nameType := sliceNameType(buff[2+12:])
+				cacheKey := createCacheKey(nameType)
+				offsets, err := ttlOffsets(buff[2:])
 				if err != nil {
 					pc.cache.log.Printf("\x1b[35;1m%v\x1b[0m\n", err)
 					continue
 				}
-				queryCache.Put(s, Query{buff[2:n], offsets, time.Now()})
+				queryCache.Put(cacheKey, Query{buff[2:], offsets, time.Now()})
 			}
 
 			// Shave off first 2 bytes for the length and write back to client over UDP.
-			val.(Packet).clientConn.WriteToUDP(buff[2:n], val.(Packet).clientAddr)
+			n, err := val.(Packet).clientConn.WriteToUDP(buff[2:], val.(Packet).clientAddr)
+			if err != nil {
+				pc.log.Printf("Error writting back to client\n")
+				break
+			}
+			pc.log.Printf("Wrote %v back to client\n", n)
 
 			// Calculate ellapsed time since start of request.
 			elapsed := time.Since(val.(Packet).start)
