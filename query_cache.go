@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -67,6 +68,18 @@ func (qc *QueryCache) Get(key [sha1.Size]byte) ([]byte, bool) {
 	}
 
 	return []byte{}, false
+}
+
+// Entries outputs all the current entries in the cache along with their TTLs.
+func (qc *QueryCache) Entries(f io.Writer) {
+	qc.mu.Lock()
+	defer qc.mu.Unlock()
+
+	for _, query := range qc.queries {
+		rr, _ := NewRR(query.data[12:])
+		ttls := getTTLs(query.data, query.offsets)
+		fmt.Fprintf(f, "%s, %s, %+v\n", rr.hostname, rr.rType, ttls)
+	}
 }
 
 // Reaper ticks over and runs through the TTL decrements.
@@ -181,4 +194,14 @@ func decTTL(data []byte, offsets []int, decrementBy uint32) ([]byte, bool) {
 		binary.BigEndian.PutUint32(data[offset:offset+4], currentTTL-decrementBy)
 	}
 	return data, true
+}
+
+// getTTLs gets the TTLs from the offsets using the data.
+func getTTLs(data []byte, offsets []int) []uint32 {
+	ttls := []uint32{}
+	for _, offset := range offsets {
+		currentTTL := binary.BigEndian.Uint32(data[offset : offset+4])
+		ttls = append(ttls, currentTTL)
+	}
+	return ttls
 }
