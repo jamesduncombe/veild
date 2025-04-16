@@ -48,10 +48,11 @@ func (r *QueryCache) Put(key [sha1.Size]byte, value Query) {
 }
 
 // Get gets an entry from the query cache.
-func (r *QueryCache) Get(key [sha1.Size]byte) ([]byte, bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if v, ok := r.queries[key]; ok {
+func (qc *QueryCache) Get(key [sha1.Size]byte) ([]byte, bool) {
+	qc.mu.Lock()
+	defer qc.mu.Unlock()
+
+	if v, ok := qc.queries[key]; ok {
 		// Try decrementing the TTL by n seconds.
 		decBy := uint32(time.Since(v.creation).Seconds())
 		// Make a copy of our underlying array. Preventing a sneaky data race!
@@ -78,6 +79,8 @@ func (qc *QueryCache) reaper() {
 	t := time.Now()
 
 	qc.mu.Lock()
+	defer qc.mu.Unlock()
+
 	for k, v := range qc.queries {
 		now := time.Now()
 		decBy := uint32(now.Sub(v.creation).Seconds())
@@ -91,7 +94,6 @@ func (qc *QueryCache) reaper() {
 
 	elapsed := time.Since(t)
 	numEntries := len(qc.queries)
-	qc.mu.Unlock()
 
 	qc.log.Printf("Spent in loop: %v - entries: %d\n", elapsed, numEntries)
 
