@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -31,7 +32,7 @@ type Packet struct {
 var (
 	queryCache   *QueryCache
 	blacklist    *Blacklist
-	numRequests  int
+	numRequests  atomic.Uint64
 	caching      bool
 	blacklisting = false
 )
@@ -127,9 +128,9 @@ func Run(config *Config) {
 			packetData: buff[:n],
 			start:      time.Now()}
 
-		numRequests++
+		numRequests.Add(1)
 
-		mainLog.Printf("[stats] Requests: %d\n", numRequests)
+		mainLog.Printf("[stats] Requests: %d\n", numRequests.Load())
 
 		// Spin up new goroutine per request.
 		go resolve(pool, packet, mainLog)
@@ -204,7 +205,7 @@ func cleanup(mainLog *log.Logger) {
 	go func() {
 		<-c
 		mainLog.Printf("Exiting...\n")
-		mainLog.Printf("[stats] Total requests served: %d\n", numRequests)
+		mainLog.Printf("[stats] Total requests served: %d\n", numRequests.Load())
 
 		os.Exit(0)
 	}()
