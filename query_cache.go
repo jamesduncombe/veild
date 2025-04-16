@@ -53,11 +53,11 @@ func (qc *QueryCache) Get(key [sha1.Size]byte) ([]byte, bool) {
 	qc.mu.Lock()
 	defer qc.mu.Unlock()
 
-	if v, ok := qc.queries[key]; ok {
+	if query, ok := qc.queries[key]; ok {
 		// Try decrementing the TTL by n seconds.
-		decBy := uint32(time.Since(v.creation).Seconds())
+		decBy := uint32(time.Since(query.creation).Seconds())
 
-		if newRecord, ok := decTTL(v.data, v.offsets, decBy); ok {
+		if newRecord, ok := decTTL(query.data, query.offsets, decBy); ok {
 			return newRecord, true
 		}
 
@@ -85,11 +85,13 @@ func (qc *QueryCache) reaper() {
 	qc.mu.Lock()
 	defer qc.mu.Unlock()
 
-	for k, v := range qc.queries {
+	for k, query := range qc.queries {
 		now := time.Now()
-		decBy := uint32(now.Sub(v.creation).Seconds())
-		if newRecord, ok := decTTL(v.data, v.offsets, decBy); ok {
-			qc.queries[k] = Query{newRecord, v.offsets, now}
+
+		decBy := uint32(now.Sub(query.creation).Seconds())
+
+		if newRecord, ok := decTTL(query.data, query.offsets, decBy); ok {
+			qc.queries[k] = Query{newRecord, query.offsets, now}
 			continue
 		}
 		qc.log.Printf("\x1b[31;1mRemoving: 0x%x\x1b[0m\n", k)
@@ -102,7 +104,7 @@ func (qc *QueryCache) reaper() {
 	qc.log.Printf("Spent in loop: %v - entries: %d\n", elapsed, numEntries)
 }
 
-// ttlOffsets scans a DNS records and returns offsets of all the TTLs within it.
+// ttlOffsets scans a DNS record and returns offsets of all the TTLs within it.
 func ttlOffsets(data []byte) ([]int, error) {
 
 	byteOffsets := []int{}
