@@ -72,6 +72,7 @@ func Run(config *Config) {
 		queryCache = NewQueryCache()
 		go queryCache.Reaper()
 	} else {
+		queryCache = NewQueryCache()
 		queryCache.log.Println("\x1b[31;1mCaching off\x1b[0m")
 	}
 
