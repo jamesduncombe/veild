@@ -34,7 +34,7 @@ func TestQueryCache_Reaper(t *testing.T) {
 	file, _ := os.ReadFile("fixtures/long_response.bin")
 	queryCache := NewQueryCache()
 	n := len(file)
-	nameType := sliceNameType(file[12:n])
+	nameType, _ := sliceNameType(file[12:n])
 	s := createCacheKey(nameType)
 	offsets, _ := ttlOffsets(file[:n])
 	queryCache.Put(s, Query{file[:n], offsets, time.Now()})

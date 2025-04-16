@@ -27,11 +27,15 @@ func Test_sliceNameType(t *testing.T) {
 		0x06, 0x61, 0x6d, 0x61, 0x7a, 0x6f, 0x6e, 0x02,
 		0x63, 0x6f, 0x02, 0x75, 0x6b, 0x00, 0x00, 0x01,
 	}
-	if !reflect.DeepEqual(sliceNameType(packet), shouldBe) {
+	nameType, _ := sliceNameType(packet)
+	if !reflect.DeepEqual(nameType, shouldBe) {
 		t.Fail()
 	}
+
 	failureCase := []byte{0x01}
-	if !reflect.DeepEqual(sliceNameType(failureCase), []byte{}) {
+
+	failedNameType, _ := sliceNameType(failureCase)
+	if !reflect.DeepEqual(failedNameType, []byte{}) {
 		t.Fail()
 	}
 }

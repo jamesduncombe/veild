@@ -104,7 +104,12 @@ func (pc *PConn) readLoop() {
 
 			if caching {
 				// Write response to cache.
-				nameType := sliceNameType(buff[2+12:])
+				nameType, err := sliceNameType(buff[2+12:])
+				if err != nil {
+					pc.cache.log.Printf("\x1b[35;1m%v\x1b[0m\n", err)
+					continue
+				}
+
 				cacheKey := createCacheKey(nameType)
 				offsets, err := ttlOffsets(buff[2:])
 				if err != nil {

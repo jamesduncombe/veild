@@ -34,6 +34,9 @@ var ResourceTypes = map[uint16]string{
 
 // Errors in the DNS parse phase.
 var (
+	// ErrInvalidDnsPacket is returned when the packet doesn't look like a DNS packet.
+	ErrInvalidDnsPacket = errors.New("invalid dns packet")
+
 	// ErrInvalidRType is returned when a mapping cannot be found between
 	// the numeric representation of an RR type and it's string.
 	ErrInvalidRType = errors.New("invalid rtype")
@@ -42,7 +45,11 @@ var (
 // NewRR returns a new RR.
 func NewRR(data []byte) (*RR, error) {
 
-	nameType := sliceNameType(data)
+	nameType, err := sliceNameType(data)
+	if err != nil {
+		return nil, err
+	}
+
 	host := parseDomainName(nameType[:len(nameType)-2])
 	rtype := binary.BigEndian.Uint16(nameType[len(nameType)-2:])
 
@@ -78,11 +85,12 @@ func parseDomainName(data []byte) string {
 
 // sliceNameType takes a DNS request and slices out the name + type of the request.
 // This is mainly used for the cache key when storing a request.
-func sliceNameType(packet []byte) []byte {
+func sliceNameType(packet []byte) ([]byte, error) {
 	// Scan for end of name (0x00).
 	if i := bytes.IndexByte(packet, 0x00); i != -1 {
 		// Return the name and type.
-		return packet[:i+3]
+		return packet[:i+3], nil
 	}
-	return []byte{}
+
+	return []byte{}, ErrInvalidDnsPacket
 }
