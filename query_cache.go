@@ -167,15 +167,14 @@ func createCacheKey(key []byte) [sha1.Size]byte {
 func decTTL(data []byte, offsets []int, decrementBy uint32) ([]byte, bool) {
 	for _, offset := range offsets {
 		currentTTL := binary.BigEndian.Uint32(data[offset : offset+4])
-		if currentTTL-decrementBy == uint32(0) {
+
+		// If we're decrementing to 0 or past 0 then the record should expire.
+		if decrementBy >= currentTTL {
 			return nil, false
 		}
-		newTTL := make([]byte, 4)
-		binary.BigEndian.PutUint32(newTTL, currentTTL-decrementBy)
-		data[offset] = newTTL[0]
-		data[offset+1] = newTTL[1]
-		data[offset+2] = newTTL[2]
-		data[offset+3] = newTTL[3]
+
+		// Update TTL.
+		binary.BigEndian.PutUint32(data[offset:offset+4], currentTTL-decrementBy)
 	}
 	return data, true
 }
