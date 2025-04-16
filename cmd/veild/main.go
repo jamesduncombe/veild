@@ -50,6 +50,7 @@ func main() {
 
 	// Sort out the config.
 	config := &veild.Config{
+		Version:       veilVersion,
 		ListenAddr:    listenAddr,
 		Caching:       caching,
 		OutboundPort:  outboundPort,

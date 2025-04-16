@@ -14,6 +14,7 @@ import (
 
 // Config represents the command line options.
 type Config struct {
+	Version       string
 	ListenAddr    string
 	Caching       bool
 	OutboundPort  uint
@@ -50,7 +51,7 @@ func Run(config *Config) {
 
 	mainLog := log.New(os.Stdout, "[main] ", log.LstdFlags|log.Lmsgprefix)
 
-	mainLog.Println("Starting Veil")
+	mainLog.Printf("Starting Veil %s\n", config.Version)
 
 	mainLog.Printf("\x1b[31;1mOutbound port set to %d\x1b[0m\n", config.OutboundPort)
 
