@@ -41,10 +41,11 @@ func NewQueryCache() *QueryCache {
 }
 
 // Put puts an entry into the query cache.
-func (r *QueryCache) Put(key [sha1.Size]byte, value Query) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.queries[key] = value
+func (qc *QueryCache) Put(key [sha1.Size]byte, value Query) {
+	qc.mu.Lock()
+	defer qc.mu.Unlock()
+
+	qc.queries[key] = value
 }
 
 // Get gets an entry from the query cache.
@@ -55,23 +56,26 @@ func (qc *QueryCache) Get(key [sha1.Size]byte) ([]byte, bool) {
 	if v, ok := qc.queries[key]; ok {
 		// Try decrementing the TTL by n seconds.
 		decBy := uint32(time.Since(v.creation).Seconds())
-		// Make a copy of our underlying array. Preventing a sneaky data race!
-		b := make([]byte, len(v.data))
-		copy(b, v.data)
-		if newRecord, ok := decTTL(b, v.offsets, decBy); ok {
+
+		if newRecord, ok := decTTL(v.data, v.offsets, decBy); ok {
 			return newRecord, true
 		}
+
 		// Remove it, must be too old.
-		r.log.Printf("\x1b[31;1m[cache_get] Removing: 0x%x\x1b[0m\n", key)
-		delete(r.queries, key)
+		qc.log.Printf("\x1b[31;1m[get] Removing: 0x%x\x1b[0m\n", key)
+		delete(qc.queries, key)
 	}
+
 	return []byte{}, false
 }
 
-// Reaper ticks over every second and runs through the TTL decrements.
+// Reaper ticks over and runs through the TTL decrements.
 func (qc *QueryCache) Reaper() {
 	for {
 		qc.reaper()
+
+		// Re-run after...
+		time.Sleep(time.Minute)
 	}
 }
 
@@ -88,7 +92,7 @@ func (qc *QueryCache) reaper() {
 			qc.queries[k] = Query{newRecord, v.offsets, now}
 			continue
 		}
-		qc.log.Printf("\x1b[31;1m[cache] Removing: 0x%x\x1b[0m\n", k)
+		qc.log.Printf("\x1b[31;1mRemoving: 0x%x\x1b[0m\n", k)
 		delete(qc.queries, k)
 	}
 
@@ -96,8 +100,6 @@ func (qc *QueryCache) reaper() {
 	numEntries := len(qc.queries)
 
 	qc.log.Printf("Spent in loop: %v - entries: %d\n", elapsed, numEntries)
-
-	time.Sleep(time.Second)
 }
 
 // ttlOffsets scans a DNS records and returns offsets of all the TTLs within it.
