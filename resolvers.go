@@ -9,10 +9,10 @@ import (
 // defaultResolver is a YML config for DNS resolvers if no resolvers file is given.
 const defaultResolver = `
 resolvers:
-  - address: "1.1.1.1:853"
-    hostname: "cloudflare-dns.com"
-  - address: "1.0.0.1:853"
-    hostname: "cloudflare-dns.com"
+  - address: "9.9.9.9:853"
+    hostname: "dns.quad9.net"
+  - address: "194.242.2.9:853"
+    hostname: "all.dns.mullvad.net"
 `
 
 // Resolver implements a resolver.
