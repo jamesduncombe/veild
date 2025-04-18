@@ -29,7 +29,7 @@ The quickest and easiest way to get started, assuming you've extracted the archi
 sudo ./veild
 ```
 
-This will start `veild` with caching on and a resolvers set to [Cloudflare's](https://developers.cloudflare.com/1.1.1.1/dns-over-tls/) `1.1.1.1` and `1.0.0.1`.
+This will start `veild` with caching on and a resolvers set to [Quad9's](https://www.quad9.net/) 9.9.9.9 and [Mullvad's](https://mullvad.net/en/help/dns-over-https-and-dns-over-tls) 194.242.2.9 servers.
 
 Why do I need sudo?! Well, by default veild listens on port `53` (UDP) which is within the privileged ports range... more on that [here](https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html).
 
@@ -37,9 +37,9 @@ Hopefully you should see it startup with output similar to the following:
 
 ```sh
 $ sudo ./veild
-2018/09/06 16:59:03 Starting Veil
-2018/09/06 16:59:03 [main] Outbound port set to 853
-2018/09/06 16:59:03 [main] Listening on 127.0.0.1:53 (UDP)
+2025/04/06 16:59:03 Starting Veil
+2025/04/06 16:59:03 [main] Outbound port set to 853
+2025/04/06 16:59:03 [main] Listening on 127.0.0.1:53 (UDP)
 ```
 
 If you do... good stuff!
