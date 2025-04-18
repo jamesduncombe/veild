@@ -118,9 +118,11 @@ func (qc *QueryCache) reaper() {
 }
 
 // ttlOffsets scans a DNS record and returns offsets of all the TTLs within it.
+// SEE: https://www.rfc-editor.org/rfc/rfc1035#section-3.2
+// SEE: https://cs.opensource.google/go/x/net/+/master:dns/dnsmessage/message.go;l=2105;drc=ea0c1d94f5e0c4b4c18b927e26e188ad8fadb38e
 func ttlOffsets(data []byte) ([]int, error) {
 
-	byteOffsets := []int{}
+	ttlOffsets := []int{}
 
 	// Get total answers etc.
 	answers := binary.BigEndian.Uint16(data[6:8])
@@ -129,50 +131,59 @@ func ttlOffsets(data []byte) ([]int, error) {
 	total := int(answers + authority)
 
 	// Skip first 12 bytes (always the header, no TTLs).
-	startOffset := 12
+	offset := HeaderLength
+
+	// Attempting to jump over Questions section.
+
 	// Quickly run through the query (single one).
-	i := bytes.IndexByte(data[startOffset:], 0x00)
-	i += 5 // jump 1 + 4 more bytes (Type and Class).
-	startOfAnswers := i + startOffset
+	i := bytes.IndexByte(data[offset:], 0x00)
+	i += 5 // jump 1 + 4 more bytes (End of Name, Type and Class).
+	offset += i
+
+	// Parsing Answers and Authority RRs.
 
 	for n := 0; n < total; n++ {
-		for {
-			if len(data) < startOfAnswers+1 {
-				return nil, ErrProblemParsingOffsets
-			}
-			marker := data[startOfAnswers : startOfAnswers+1]
-			if bytes.Equal(marker, []byte{0xc0}) {
-				// Pointer ref, only 2 bytes.
-				startOfAnswers += 2
-				break
-			} else if bytes.Equal(marker, []byte{0x00}) {
-				// End of record.
-				startOfAnswers++
-				break
-			} else {
-				startOfAnswers += int(marker[0]) + 1
-			}
-		}
 
-		// Skip over type and class.
-		startOfAnswers += 4
+		// Handle NAME field.
+		// This could be a pointer or a label.
 
-		// Before appending make sure this is a sane offset.
-		if startOfAnswers > len(data) {
+		// Check we're not overrunning the length of the message.
+		if len(data) < offset+1 {
 			return nil, ErrProblemParsingOffsets
 		}
 
-		// TTL.
-		byteOffsets = append(byteOffsets, startOfAnswers)
-		startOfAnswers += 4
+		marker := data[offset : offset+1]
+		c := marker[0]
 
-		// Data length.
-		le := binary.BigEndian.Uint16(data[startOfAnswers : startOfAnswers+2])
-		startOfAnswers += 2
-		startOfAnswers += int(le)
+		switch c & 0xc0 {
+
+		case 0xc0: // Pointer ref, only 2 bytes.
+			offset += 2
+
+		case 0x00: // End of record.
+			offset++
+
+		default:
+			return nil, fmt.Errorf("error on marker: 0x%x", marker)
+
+		}
+
+		// Advance past the TYPE and CLASS fields.
+		offset += 4
+
+		// TTL field.
+		ttlOffsets = append(ttlOffsets, offset)
+		offset += 4
+
+		// RDLENGTH field.
+		rdLength := binary.BigEndian.Uint16(data[offset : offset+2])
+		offset += 2
+
+		// Advance past the RDATA field using RDLENGTH.
+		offset += int(rdLength)
 	}
 
-	return byteOffsets, nil
+	return ttlOffsets, nil
 }
 
 // createCacheKey generates a cache key from a given name and rtype (in bytes).

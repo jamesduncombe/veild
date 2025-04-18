@@ -31,7 +31,7 @@ func TestQueryCache_Get(t *testing.T) {
 }
 
 func TestQueryCache_Reaper(t *testing.T) {
-	file, _ := os.ReadFile("fixtures/long_response.bin")
+	file, _ := os.ReadFile("fixtures/phishing-detection.api.cx.metamask.io_a.pkt")
 	queryCache := NewQueryCache()
 	n := len(file)
 	nameType, _ := sliceNameType(file[12:n])
@@ -42,36 +42,49 @@ func TestQueryCache_Reaper(t *testing.T) {
 }
 
 func TestQueryCache_ttlOffsets(t *testing.T) {
-	file, _ := os.ReadFile("fixtures/long_response.bin")
-	offsets, _ := ttlOffsets(file)
-	shouldBe := []int{45, 67, 91, 147, 221, 237, 253, 269, 285, 301, 317, 333}
-	for i := range offsets {
-		if offsets[i] != shouldBe[i] {
-			t.Fail()
-		}
-	}
-}
 
-func TestQueryCache_ttlOffsets_ExtraData(t *testing.T) {
-	file, _ := os.ReadFile("fixtures/packet_with_extra_data.bin")
-	offsets, _ := ttlOffsets(file)
-	shouldBe := []int{42, 75}
-	for i := range offsets {
-		if offsets[i] != shouldBe[i] {
-			t.Fail()
+	tests := []struct {
+		filename string
+		shouldBe []int
+	}{
+		{
+			filename: "fixtures/phishing-detection.api.cx.metamask.io_a.pkt",
+			shouldBe: []int{61, 128, 186, 213, 251, 307, 321},
+		},
+	}
+
+	for i, test := range tests {
+		data, _ := os.ReadFile(test.filename)
+		offsets, _ := ttlOffsets(data)
+		if len(offsets) != len(test.shouldBe) {
+			t.Errorf("wanted %d length got %d", len(offsets), len(test.shouldBe))
+			break
+		}
+		if offsets[i] != test.shouldBe[i] {
+			t.Errorf("wanted %d offset got %d", offsets[i], test.shouldBe[i])
 		}
 	}
 }
 
 func TestQueryCache_decTTL(t *testing.T) {
-	file, _ := os.ReadFile("fixtures/response.bin")
-	// TTL at 60 seconds
+	file, _ := os.ReadFile("fixtures/client.dropbox.com_aaaa.pkt")
+
 	offsets, _ := ttlOffsets(file)
-	b, _ := decTTL(file, offsets, 1)
+
+	originalTtls := []uint32{}
+
 	for _, offset := range offsets {
-		// Check TTL goes to 59
-		if binary.BigEndian.Uint32(b[offset:offset+4]) != 59 {
-			t.Fail()
+		originalTtls = append(originalTtls, binary.BigEndian.Uint32(file[offset:offset+4]))
+	}
+
+	b, _ := decTTL(file, offsets, 1)
+
+	for i, offset := range offsets {
+		newTtl := binary.BigEndian.Uint32(b[offset : offset+4])
+
+		// Check TTL is decremented by 1.
+		if newTtl != originalTtls[i]-1 {
+			t.Errorf("wanted %d ttl got %d", originalTtls[i]-1, newTtl)
 		}
 	}
 }
