@@ -1,28 +1,25 @@
 package veild
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestResponseCache_Put(t *testing.T) {
 	responseCache := NewResponseCache()
-	k := uint16(10)
+
 	v := Packet{}
-	responseCache.Put(k, v)
+	responseCache.Set(v)
 }
 
 func TestResponseCache_Get(t *testing.T) {
 	responseCache := NewResponseCache()
-	k := uint16(10)
+
 	v := Packet{}
-	responseCache.Put(k, v)
-	_, ok := responseCache.Get(k)
+	responseCache.Set(v)
+	_, ok := responseCache.Get(v.cacheKey())
 	if !ok {
 		t.Error("should exist")
 	}
 
-	nk := uint16(10)
-	_, ok = responseCache.Get(nk)
+	_, ok = responseCache.Get(v.cacheKey())
 	if ok {
 		t.Error("shouldn't exist")
 	}

@@ -22,14 +22,6 @@ type Config struct {
 	ResolversFile string
 }
 
-// Packet represents the structure of a client request.
-type Packet struct {
-	clientAddr *net.UDPAddr
-	clientConn *net.UDPConn
-	packetData []byte
-	start      time.Time
-}
-
 var (
 	queryCache   *QueryCache
 	blacklist    *Blacklist
@@ -127,7 +119,7 @@ func Run(config *Config) {
 		packet := Packet{
 			clientAddr: clientAddr,
 			clientConn: conn,
-			packetData: buff[:n],
+			data:       buff[:n],
 			start:      time.Now()}
 
 		numRequests.Add(1)
@@ -142,7 +134,7 @@ func Run(config *Config) {
 // resolve handles individual requests.
 func resolve(p *Pool, packet Packet, mainLog *log.Logger) {
 
-	rr, err := NewRR(packet.packetData[HeaderLength:])
+	rr, err := NewRR(packet.data[HeaderLength:])
 	if err != nil {
 		mainLog.Println("Problem handling RR")
 		mainLog.Println(err)
@@ -156,8 +148,8 @@ func resolve(p *Pool, packet Packet, mainLog *log.Logger) {
 		if blacklist.Exists(rr.hostname) {
 			blacklist.log.Printf("\x1b[31;1mMatch: %s\x1b[0m\n", rr.hostname)
 			// Reform the query as a response with 0 answers.
-			transIDFlags := append(packet.packetData[:2], []byte{0x81, 0x83}...)
-			newPacket := append(transIDFlags, packet.packetData[4:]...)
+			transIDFlags := append(packet.data[:2], []byte{0x81, 0x83}...)
+			newPacket := append(transIDFlags, packet.data[4:]...)
 			packet.clientConn.WriteToUDP(newPacket, packet.clientAddr)
 			return
 		}
@@ -175,7 +167,7 @@ func resolve(p *Pool, packet Packet, mainLog *log.Logger) {
 			// Then maybe move the logic into query cache?
 			queryCache.mu.Lock()
 			// Prepend the transaction id to the payload.
-			responsePacket := append(packet.packetData[:2], data[2:]...)
+			responsePacket := append(packet.data[:2], data[2:]...)
 			queryCache.mu.Unlock()
 			packet.clientConn.WriteToUDP(responsePacket, packet.clientAddr)
 			return

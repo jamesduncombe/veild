@@ -96,31 +96,25 @@ func (pc *PConn) readLoop() {
 			break
 		}
 
+		key := createCacheKey(buff[2:4])
+
 		reqID := binary.BigEndian.Uint16(buff[2:4])
 
-		if val, ok := pc.cache.Get(reqID); ok {
+		if packet, ok := pc.cache.Get(key); ok {
 
 			pc.cache.log.Printf("Match for \x1b[31;1m0x%x\x1b[0m\n", reqID)
 
 			if caching {
-				// Write response to cache.
-				nameType, err := sliceNameType(buff[2+12:])
-				if err != nil {
-					pc.cache.log.Printf("\x1b[35;1m%v\x1b[0m\n", err)
-					continue
-				}
-
-				cacheKey := createCacheKey(nameType)
 				offsets, err := ttlOffsets(buff[2:])
 				if err != nil {
 					pc.cache.log.Printf("\x1b[35;1m%v\x1b[0m\n", err)
 					continue
 				}
-				queryCache.Put(cacheKey, Query{buff[2:], offsets, time.Now()})
+				queryCache.Set(Query{buff[2:], offsets, time.Now()})
 			}
 
 			// Shave off first 2 bytes for the length and write back to client over UDP.
-			n, err := val.(Packet).clientConn.WriteToUDP(buff[2:], val.(Packet).clientAddr)
+			_, err := packet.clientConn.WriteToUDP(buff[2:], packet.clientAddr)
 			if err != nil {
 				pc.log.Printf("Error writting back to client\n")
 				break
@@ -128,7 +122,7 @@ func (pc *PConn) readLoop() {
 			pc.log.Printf("Wrote %v back to client\n", n)
 
 			// Calculate ellapsed time since start of request.
-			elapsed := time.Since(val.(Packet).start)
+			elapsed := time.Since(packet.start)
 
 			pc.log.Printf("[pool] Trans.ID: \x1b[31;1m0x%x\x1b[0m Query time: \x1b[31;1m%v\x1b[0m\n",
 				reqID,
@@ -143,7 +137,7 @@ func (pc *PConn) readLoop() {
 func (pc *PConn) writeLoop() {
 	for {
 		select {
-		case wr := <-pc.writech:
+		case packet := <-pc.writech:
 
 			// Overwrite time of last request.
 			pc.mu.Lock()
@@ -151,15 +145,14 @@ func (pc *PConn) writeLoop() {
 			pc.mu.Unlock()
 
 			// Calculate packet length and pack into uint16 (BigEndian).
-			rawLen := len(wr.packetData)
-			packetLength := []byte{uint8(rawLen >> 8), uint8(rawLen)}
+			packetLength := make([]byte, 2)
+			binary.BigEndian.PutUint16(packetLength, uint16(len(packet.data)))
 
 			// Prepend packet length.
-			pc.conn.Write(append(packetLength, wr.packetData...))
+			pc.conn.Write(append(packetLength, packet.data...))
 
 			// Add to cache.
-			reqID := binary.BigEndian.Uint16(wr.packetData[:2])
-			pc.cache.Put(reqID, wr)
+			pc.cache.Set(packet)
 
 		case <-pc.closech:
 			close(pc.writech)

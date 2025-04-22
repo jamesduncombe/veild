@@ -1,6 +1,8 @@
 package veild
 
 import (
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"sync"
@@ -9,32 +11,44 @@ import (
 // ResponseCache represents a response cache.
 type ResponseCache struct {
 	mu        sync.Mutex
-	responses map[uint16]Packet
+	responses map[uint64]Packet
 	log       *log.Logger
 }
 
 // NewResponseCache handles ResponseCache initialization.
 func NewResponseCache() *ResponseCache {
 	return &ResponseCache{
-		responses: make(map[uint16]Packet),
+		responses: make(map[uint64]Packet),
 		log:       log.New(os.Stdout, "[response_cache] ", log.LstdFlags|log.Lmsgprefix),
 	}
 }
 
-// Put puts an entry into the response cache.
-func (r *ResponseCache) Put(key uint16, value Packet) {
+func (r *ResponseCache) Set(value Packet) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.responses[key] = value
+
+	r.responses[value.cacheKey()] = value
 }
 
 // Get gets an entry from the response cache.
-func (r *ResponseCache) Get(key uint16) (interface{}, bool) {
+func (r *ResponseCache) Get(key uint64) (Packet, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if val, ok := r.responses[key]; ok {
+	if packet, ok := r.responses[key]; ok {
 		delete(r.responses, key)
-		return val, true
+		return packet, true
 	}
-	return nil, false
+	return Packet{}, false
+}
+
+// Entries outputs all the current entries in the cache along with their TTLs.
+func (rc *ResponseCache) Entries(f io.Writer) {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	for _, response := range rc.responses {
+		rr, _ := NewRR(response.data[HeaderLength:])
+
+		fmt.Fprintf(f, "%s, %s\n", rr.hostname, rr.rType)
+	}
 }

@@ -2,7 +2,6 @@ package veild
 
 import (
 	"bytes"
-	"crypto/sha1"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -26,31 +25,35 @@ type Query struct {
 	creation time.Time
 }
 
+func (q Query) cacheKey() uint64 {
+	nameType, _ := sliceNameType(q.data[12:])
+	return createCacheKey(nameType)
+}
+
 // QueryCache holds the main structure of the query cache.
 type QueryCache struct {
 	mu      sync.RWMutex
-	queries map[[sha1.Size]byte]Query
+	queries map[uint64]Query
 	log     *log.Logger
 }
 
 // NewQueryCache handles QueryCache initialization.
 func NewQueryCache() *QueryCache {
 	return &QueryCache{
-		queries: make(map[[sha1.Size]byte]Query),
+		queries: make(map[uint64]Query),
 		log:     log.New(os.Stdout, "[query_cache] ", log.LstdFlags|log.Lmsgprefix),
 	}
 }
 
-// Put puts an entry into the query cache.
-func (qc *QueryCache) Put(key [sha1.Size]byte, value Query) {
+func (qc *QueryCache) Set(value Query) {
 	qc.mu.Lock()
 	defer qc.mu.Unlock()
 
-	qc.queries[key] = value
+	qc.queries[value.cacheKey()] = value
 }
 
 // Get gets an entry from the query cache.
-func (qc *QueryCache) Get(key [sha1.Size]byte) ([]byte, bool) {
+func (qc *QueryCache) Get(key uint64) ([]byte, bool) {
 	qc.mu.Lock()
 	defer qc.mu.Unlock()
 
@@ -184,11 +187,6 @@ func ttlOffsets(data []byte) ([]int, error) {
 	}
 
 	return ttlOffsets, nil
-}
-
-// createCacheKey generates a cache key from a given name and rtype (in bytes).
-func createCacheKey(key []byte) [sha1.Size]byte {
-	return sha1.Sum(key)
 }
 
 // decTTL decrements a responses TTL by n seconds.
