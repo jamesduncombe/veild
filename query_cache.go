@@ -1,9 +1,6 @@
 package veild
 
 import (
-	"bytes"
-	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -12,35 +9,17 @@ import (
 	"time"
 )
 
-// Errors in the query cache.
-var (
-	// ErrProblemParsingOffsets is returned when a TTL offset cannot be parsed.
-	ErrProblemParsingOffsets = errors.New("problem parsing TTL offsets")
-)
-
-// Query holds the structure for the raw response data and offsets of TTLs.
-type Query struct {
-	data     []byte
-	offsets  []int
-	creation time.Time
-}
-
-func (q Query) cacheKey() uint64 {
-	nameType, _ := sliceNameType(q.data[12:])
-	return createCacheKey(nameType)
-}
-
 // QueryCache holds the main structure of the query cache.
 type QueryCache struct {
 	mu      sync.RWMutex
-	queries map[uint64]Query
+	queries map[cacheKey]Query
 	log     *log.Logger
 }
 
 // NewQueryCache handles QueryCache initialization.
 func NewQueryCache() *QueryCache {
 	return &QueryCache{
-		queries: make(map[uint64]Query),
+		queries: make(map[cacheKey]Query),
 		log:     log.New(os.Stdout, "[query_cache] ", log.LstdFlags|log.Lmsgprefix),
 	}
 }
@@ -53,7 +32,7 @@ func (qc *QueryCache) Set(value Query) {
 }
 
 // Get gets an entry from the query cache.
-func (qc *QueryCache) Get(key uint64) ([]byte, bool) {
+func (qc *QueryCache) Get(key cacheKey) (Query, bool) {
 	qc.mu.Lock()
 	defer qc.mu.Unlock()
 
@@ -61,8 +40,8 @@ func (qc *QueryCache) Get(key uint64) ([]byte, bool) {
 		// Try decrementing the TTL by n seconds.
 		decBy := uint32(time.Since(query.creation).Seconds())
 
-		if newRecord, ok := decTTL(query.data, query.offsets, decBy); ok {
-			return newRecord, true
+		if newQuery, ok := query.decTTL(decBy); ok {
+			return newQuery, true
 		}
 
 		// Remove it, must be too old.
@@ -70,7 +49,7 @@ func (qc *QueryCache) Get(key uint64) ([]byte, bool) {
 		delete(qc.queries, key)
 	}
 
-	return []byte{}, false
+	return Query{}, false
 }
 
 // Entries outputs all the current entries in the cache along with their TTLs.
@@ -79,8 +58,8 @@ func (qc *QueryCache) Entries(f io.Writer) {
 	defer qc.mu.Unlock()
 
 	for _, query := range qc.queries {
-		rr, _ := NewRR(query.data[12:])
-		ttls := getTTLs(query.data, query.offsets)
+		rr, _ := NewRR(query.data[HeaderLength:])
+		ttls := query.getTTLs()
 		fmt.Fprintf(f, "%s, %s, %+v\n", rr.hostname, rr.rType, ttls)
 	}
 }
@@ -106,8 +85,8 @@ func (qc *QueryCache) reaper() {
 
 		decBy := uint32(now.Sub(query.creation).Seconds())
 
-		if newRecord, ok := decTTL(query.data, query.offsets, decBy); ok {
-			qc.queries[k] = Query{newRecord, query.offsets, now}
+		if query, ok := query.decTTL(decBy); ok {
+			qc.queries[k] = Query{query.data, query.offsets, now}
 			continue
 		}
 		qc.log.Printf("\x1b[31;1mRemoving: 0x%x\x1b[0m\n", k)
