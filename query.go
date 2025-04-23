@@ -12,7 +12,7 @@ type Query struct {
 	creation time.Time
 }
 
-func (q Query) cacheKey() uint64 {
+func (q Query) cacheKey() cacheKey {
 	nameType, _ := sliceNameType(q.data[12:])
 	return createCacheKey(nameType)
 }

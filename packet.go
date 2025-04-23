@@ -13,6 +13,6 @@ type Packet struct {
 	start      time.Time
 }
 
-func (p Packet) cacheKey() uint64 {
+func (p Request) cacheKey() cacheKey {
 	return createCacheKey(p.data[:2])
 }
