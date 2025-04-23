@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 // RR represents a domain name and resource type.
@@ -40,6 +41,9 @@ var (
 	// ErrInvalidRType is returned when a mapping cannot be found between
 	// the numeric representation of an RR type and it's string.
 	ErrInvalidRType = errors.New("invalid rtype")
+
+	// ErrProblemParsingOffsets is returned when a TTL offset cannot be parsed.
+	ErrProblemParsingOffsets = errors.New("problem parsing TTL offsets")
 )
 
 // NewRR returns a new RR.
@@ -70,9 +74,11 @@ func parseDomainName(data []byte) string {
 	i := 0
 	for {
 		if data[i] == 0x00 {
+			// End of label/name.
 			break
 		}
 		if i != 0x00 {
+			// Append a `.`.
 			parts = append(parts, 0x2e)
 		}
 		l := int(data[i])
@@ -93,4 +99,73 @@ func sliceNameType(packet []byte) ([]byte, error) {
 	}
 
 	return []byte{}, ErrInvalidDnsPacket
+}
+
+// ttlOffsets scans a DNS record and returns offsets of all the TTLs within it.
+// SEE: https://www.rfc-editor.org/rfc/rfc1035#section-3.2
+// SEE: https://cs.opensource.google/go/x/net/+/master:dns/dnsmessage/message.go;l=2105;drc=ea0c1d94f5e0c4b4c18b927e26e188ad8fadb38e
+func ttlOffsets(data []byte) ([]int, error) {
+
+	var ttlOffsets []int
+
+	// Get total answers etc.
+	answers := binary.BigEndian.Uint16(data[6:8])
+	authority := binary.BigEndian.Uint16(data[8:10])
+
+	total := int(answers + authority)
+
+	// Skip first 12 bytes (always the header, no TTLs).
+	offset := HeaderLength
+
+	// Attempting to jump over Questions section.
+
+	// Quickly run through the query (single one).
+	i := bytes.IndexByte(data[offset:], 0x00)
+	i += 5 // jump 1 + 4 more bytes (End of Name, Type and Class).
+	offset += i
+
+	// Parsing Answers and Authority RRs.
+
+	for n := 0; n < total; n++ {
+
+		// Handle NAME field.
+		// This could be a pointer or a label.
+
+		// Check we're not overrunning the length of the message.
+		if len(data) < offset+1 {
+			return nil, ErrProblemParsingOffsets
+		}
+
+		marker := data[offset : offset+1]
+		c := marker[0]
+
+		switch c & 0xc0 {
+
+		case 0xc0: // Pointer ref, only 2 bytes.
+			offset += 2
+
+		case 0x00: // End of record.
+			offset++
+
+		default:
+			return nil, fmt.Errorf("error on marker: 0x%x", marker)
+
+		}
+
+		// Advance past the TYPE and CLASS fields.
+		offset += 4
+
+		// TTL field.
+		ttlOffsets = append(ttlOffsets, offset)
+		offset += 4
+
+		// RDLENGTH field.
+		rdLength := binary.BigEndian.Uint16(data[offset : offset+2])
+		offset += 2
+
+		// Advance past the RDATA field using RDLENGTH.
+		offset += int(rdLength)
+	}
+
+	return ttlOffsets, nil
 }
