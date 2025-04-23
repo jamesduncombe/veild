@@ -62,15 +62,16 @@ func (p *Pool) ConnectionManagement() {
 }
 
 // worker creates a new underlying pconn and assigns it a ResponseCache.
-func (p *Pool) worker(w Worker) {
+func (p *Pool) worker(worker Worker) {
 
 	// Each pconn has it's own ResponseCache.
 	responseCache := NewResponseCache()
 
 	// Start a new connection.
-	pconn, err := NewPConn(responseCache, w.host, w.serverName)
+	// TODO: Return an error?
+	pconn, err := NewPConn(responseCache, worker)
 	if err != nil {
-		p.log.Printf("Failed to add a new connection to %s\n", w.host)
+		p.log.Printf("Failed to add a new connection to %s\n", worker.host)
 		return
 	}
 
@@ -79,9 +80,9 @@ func (p *Pool) worker(w Worker) {
 		select {
 		case <-pconn.closeCh:
 			p.log.Println("PConn gone")
-			w.done <- struct{}{}
+			worker.done <- struct{}{}
 			return
-		case req := <-w.requests:
+		case req := <-worker.requests:
 			pconn.writeCh <- req
 		}
 	}
@@ -90,41 +91,29 @@ func (p *Pool) worker(w Worker) {
 // Dispatch handles dispatching requests to the underlying workers.
 func (p *Pool) Dispatch() {
 	for {
+
+		// Pull a request off.
+		request := <-p.requests
+
+		// Pull a worker off.
+		worker := <-p.workers
+
+		p.log.Printf("Worker: %s\n", worker.serverName)
+
 		select {
-		// Pull a packet off
-		case request := <-p.requests:
-			select {
-			// Grab a worker.
-			case worker := <-p.workers:
-				p.log.Printf("Worker: %s\n", worker.host)
-				select {
-				// If the worker is done, then requeue the packet and also raise a reconnection attempt.
-				case <-worker.done:
-					p.log.Printf("Worker down: %s\n", worker.host)
-					p.reconnect <- worker
-					p.requests <- request
-					// Else, write the packet to the workers queue.
-					// stick the worker back on the stack.
-				default:
-					worker.requests <- request
-					p.workers <- worker
-				}
-			// We're out of luck.
-			default:
-				p.requests <- request
-				p.log.Println("No workers left")
-			}
-		// Every 5 seconds or there abouts check each worker in turn
-		// we want to keep connections as hot as possible.
-		case <-time.After(5 * time.Second):
-			worker := <-p.workers
-			select {
-			case <-worker.done:
-				p.log.Printf("Worker %s gone, reconnecting.", worker.host)
-				p.reconnect <- worker
-			default:
-				p.workers <- worker
-			}
+		case <-worker.done:
+			// Worker is down, reconnect and re-queue request.
+			p.reconnect <- worker
+			p.requests <- request
+
+			p.log.Printf("Worker down: %s\n", worker.serverName)
+
+		default:
+			// Else, write the packet to the workers queue.
+			// stick the worker back on the stack.
+			worker.requests <- request
+			p.workers <- worker
 		}
+
 	}
 }

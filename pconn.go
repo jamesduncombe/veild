@@ -27,10 +27,10 @@ type PConn struct {
 }
 
 // NewPConn creates a new PConn which is an actual connection to an upstream DNS server.
-func NewPConn(rc *ResponseCache, host, serverName string) (*PConn, error) {
+func NewPConn(rc *ResponseCache, worker Worker) (*PConn, error) {
 	pc := &PConn{
-		host:       host,
-		serverName: serverName,
+		host:       worker.host,
+		serverName: worker.serverName,
 		writeCh:    make(chan Request, 1),
 		closeCh:    make(chan struct{}),
 		cache:      rc,
@@ -42,11 +42,11 @@ func NewPConn(rc *ResponseCache, host, serverName string) (*PConn, error) {
 	var t time.Duration = 1
 
 retry:
-	pc.log.Printf("Dialing connection: %s\n", host)
+	pc.log.Printf("Dialing connection: %s\n", pc.host)
 
-	conn, err := dialConn(host, serverName)
+	conn, err := dialConn(pc.host, pc.serverName)
 	if err != nil {
-		pc.log.Printf("Failed to connect to: %s, retrying in %d seconds\n", host, t)
+		pc.log.Printf("Failed to connect to: %s, retrying in %d seconds\n", pc.host, t)
 		// Back off for t seconds (exponential backoff).
 		time.Sleep(t * time.Second)
 		t = t << 1
