@@ -115,7 +115,6 @@ func (p *Pool) Dispatch() {
 			default:
 				p.requests <- request
 				p.log.Println("No workers left")
-				time.Sleep(2 * time.Second)
 			}
 		// Every 5 seconds or there abouts check each worker in turn
 		// we want to keep connections as hot as possible.
