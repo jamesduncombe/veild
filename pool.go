@@ -12,7 +12,6 @@ type Worker struct {
 	serverName string
 	requests   chan Request
 	done       chan struct{}
-	closed     bool
 }
 
 // Pool represents a new connection pool.
@@ -41,7 +40,6 @@ func (p *Pool) NewWorker(host, serverName string) {
 		serverName: serverName,
 		requests:   make(chan Request),
 		done:       make(chan struct{}),
-		closed:     false,
 	}
 	p.workers <- w
 	go p.worker(w)
