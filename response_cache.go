@@ -11,34 +11,45 @@ import (
 // ResponseCache represents a response cache.
 type ResponseCache struct {
 	mu        sync.Mutex
-	responses map[uint64]Packet
+	responses map[cacheKey]Request
 	log       *log.Logger
 }
 
 // NewResponseCache handles ResponseCache initialization.
 func NewResponseCache() *ResponseCache {
 	return &ResponseCache{
-		responses: make(map[uint64]Packet),
+		responses: make(map[cacheKey]Request),
 		log:       log.New(os.Stdout, "[response_cache] ", log.LstdFlags|log.Lmsgprefix),
 	}
 }
 
-func (r *ResponseCache) Set(value Packet) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+// Set adds a [Request] to the cache.
+func (rc *ResponseCache) Set(value Request) {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
 
-	r.responses[value.cacheKey()] = value
+	rc.responses[value.cacheKey()] = value
 }
 
-// Get gets an entry from the response cache.
-func (r *ResponseCache) Get(key uint64) (Packet, bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if packet, ok := r.responses[key]; ok {
-		delete(r.responses, key)
-		return packet, true
+// Get gets a [Request] from the cache.
+func (rc *ResponseCache) Get(key cacheKey) (Request, bool) {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	if request, ok := rc.responses[key]; ok {
+		delete(rc.responses, key)
+		return request, true
 	}
-	return Packet{}, false
+	return Request{}, false
+}
+
+// Check if an entry exists in the cache.
+func (rc *ResponseCache) Exists(key cacheKey) bool {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	_, ok := rc.responses[key]
+	return ok
 }
 
 // Entries outputs all the current entries in the cache along with their TTLs.
