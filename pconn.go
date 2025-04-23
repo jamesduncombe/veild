@@ -17,8 +17,8 @@ type PConn struct {
 	mu         sync.RWMutex
 	host       string
 	serverName string
-	writech    chan Packet
-	closech    chan struct{}
+	writeCh    chan Request
+	closeCh    chan struct{}
 	conn       *tls.Conn
 	cache      *ResponseCache
 	start      time.Time
@@ -31,8 +31,8 @@ func NewPConn(rc *ResponseCache, host, serverName string) (*PConn, error) {
 	pc := &PConn{
 		host:       host,
 		serverName: serverName,
-		writech:    make(chan Packet, 1),
-		closech:    make(chan struct{}),
+		writeCh:    make(chan Request, 1),
+		closeCh:    make(chan struct{}),
 		cache:      rc,
 		start:      time.Now(),
 		lastReq:    time.Now(),
@@ -79,7 +79,7 @@ func (pc *PConn) readLoop() {
 
 		pc.log.Printf("Closing connection: %s since last request: %v connection lasted: %v\n", pc.host, time.Since(pc.lastReq), time.Since(pc.start))
 		pc.conn.Close()
-		close(pc.closech)
+		close(pc.closeCh)
 	}()
 
 	for {
@@ -100,7 +100,7 @@ func (pc *PConn) readLoop() {
 
 		reqID := binary.BigEndian.Uint16(buff[2:4])
 
-		if packet, ok := pc.cache.Get(key); ok {
+		if request, ok := pc.cache.Get(key); ok {
 
 			pc.cache.log.Printf("Match for \x1b[31;1m0x%x\x1b[0m\n", reqID)
 
@@ -114,7 +114,7 @@ func (pc *PConn) readLoop() {
 			}
 
 			// Shave off first 2 bytes for the length and write back to client over UDP.
-			_, err := packet.clientConn.WriteToUDP(buff[2:], packet.clientAddr)
+			_, err := request.clientConn.WriteToUDP(buff[2:], request.clientAddr)
 			if err != nil {
 				pc.log.Printf("Error writting back to client\n")
 				break
@@ -122,7 +122,7 @@ func (pc *PConn) readLoop() {
 			pc.log.Printf("Wrote %v back to client\n", n)
 
 			// Calculate ellapsed time since start of request.
-			elapsed := time.Since(packet.start)
+			elapsed := time.Since(request.start)
 
 			pc.log.Printf("[pool] Trans.ID: \x1b[31;1m0x%x\x1b[0m Query time: \x1b[31;1m%v\x1b[0m\n",
 				reqID,
@@ -137,7 +137,7 @@ func (pc *PConn) readLoop() {
 func (pc *PConn) writeLoop() {
 	for {
 		select {
-		case packet := <-pc.writech:
+		case request := <-pc.writeCh:
 
 			// Overwrite time of last request.
 			pc.mu.Lock()
@@ -146,16 +146,16 @@ func (pc *PConn) writeLoop() {
 
 			// Calculate packet length and pack into uint16 (BigEndian).
 			packetLength := make([]byte, 2)
-			binary.BigEndian.PutUint16(packetLength, uint16(len(packet.data)))
+			binary.BigEndian.PutUint16(packetLength, uint16(len(request.data)))
 
 			// Prepend packet length.
-			pc.conn.Write(append(packetLength, packet.data...))
+			pc.conn.Write(append(packetLength, request.data...))
 
 			// Add to cache.
-			pc.cache.Set(packet)
+			pc.cache.Set(request)
 
-		case <-pc.closech:
-			close(pc.writech)
+		case <-pc.closeCh:
+			close(pc.writeCh)
 			return
 		}
 	}

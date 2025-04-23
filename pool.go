@@ -10,7 +10,7 @@ import (
 type Worker struct {
 	host       string
 	serverName string
-	requests   chan Packet
+	requests   chan Request
 	done       chan struct{}
 	closed     bool
 }
@@ -19,16 +19,17 @@ type Worker struct {
 type Pool struct {
 	workers   chan Worker
 	reconnect chan Worker
-	packets   chan Packet
+	requests  chan Request
 	log       *log.Logger
 }
 
 // NewPool creates a new connection pool.
+// TODO: Worker channels should probably be scoped to the size of the resolvers?
 func NewPool() *Pool {
 	return &Pool{
 		workers:   make(chan Worker, 10),
 		reconnect: make(chan Worker, 10),
-		packets:   make(chan Packet, 10),
+		requests:  make(chan Request, 10),
 		log:       log.New(os.Stdout, "[pool] ", log.LstdFlags|log.Lmsgprefix),
 	}
 }
@@ -38,7 +39,7 @@ func (p *Pool) NewWorker(host, serverName string) {
 	w := Worker{
 		host:       host,
 		serverName: serverName,
-		requests:   make(chan Packet),
+		requests:   make(chan Request),
 		done:       make(chan struct{}),
 		closed:     false,
 	}
@@ -49,7 +50,7 @@ func (p *Pool) NewWorker(host, serverName string) {
 // Stats prints out connection stats every x seconds.
 func (p *Pool) Stats() {
 	for {
-		p.log.Printf("[stats] Packets: %d, Reconnecting: %d, Workers: %d\n", len(p.packets), len(p.reconnect), len(p.workers))
+		p.log.Printf("[stats] Requests: %d, Reconnecting: %d, Workers: %d\n", len(p.requests), len(p.reconnect), len(p.workers))
 		time.Sleep(10 * time.Second)
 	}
 }
@@ -78,12 +79,12 @@ func (p *Pool) worker(w Worker) {
 	// Enter the loop for the worker.
 	for {
 		select {
-		case <-pconn.closech:
+		case <-pconn.closeCh:
 			p.log.Println("PConn gone")
 			w.done <- struct{}{}
 			return
 		case req := <-w.requests:
-			pconn.writech <- req
+			pconn.writeCh <- req
 		}
 	}
 }
@@ -93,7 +94,7 @@ func (p *Pool) Dispatch() {
 	for {
 		select {
 		// Pull a packet off
-		case packet := <-p.packets:
+		case request := <-p.requests:
 			select {
 			// Grab a worker.
 			case worker := <-p.workers:
@@ -103,16 +104,16 @@ func (p *Pool) Dispatch() {
 				case <-worker.done:
 					p.log.Printf("Worker down: %s\n", worker.host)
 					p.reconnect <- worker
-					p.packets <- packet
+					p.requests <- request
 					// Else, write the packet to the workers queue.
 					// stick the worker back on the stack.
 				default:
-					worker.requests <- packet
+					worker.requests <- request
 					p.workers <- worker
 				}
 			// We're out of luck.
 			default:
-				p.packets <- packet
+				p.requests <- request
 				p.log.Println("No workers left")
 				time.Sleep(2 * time.Second)
 			}

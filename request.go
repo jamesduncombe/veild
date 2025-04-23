@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// Packet represents the structure of a client request.
-type Packet struct {
+// Request represents the structure of a client request.
+type Request struct {
 	clientAddr *net.UDPAddr
 	clientConn *net.UDPConn
 	data       []byte

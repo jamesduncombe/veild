@@ -116,7 +116,7 @@ func Run(config *Config) {
 			continue
 		}
 
-		packet := Packet{
+		request := Request{
 			clientAddr: clientAddr,
 			clientConn: conn,
 			data:       buff[:n],
@@ -127,14 +127,14 @@ func Run(config *Config) {
 		mainLog.Printf("[stats] Requests: %d\n", numRequests.Load())
 
 		// Spin up new goroutine per request.
-		go resolve(pool, packet, mainLog)
+		go resolve(pool, request, mainLog)
 	}
 }
 
 // resolve handles individual requests.
-func resolve(p *Pool, packet Packet, mainLog *log.Logger) {
+func resolve(p *Pool, request Request, mainLog *log.Logger) {
 
-	rr, err := NewRR(packet.data[HeaderLength:])
+	rr, err := NewRR(request.data[HeaderLength:])
 	if err != nil {
 		mainLog.Println("Problem handling RR")
 		mainLog.Println(err)
@@ -148,9 +148,9 @@ func resolve(p *Pool, packet Packet, mainLog *log.Logger) {
 		if blacklist.Exists(rr.hostname) {
 			blacklist.log.Printf("\x1b[31;1mMatch: %s\x1b[0m\n", rr.hostname)
 			// Reform the query as a response with 0 answers.
-			transIDFlags := append(packet.data[:2], []byte{0x81, 0x83}...)
-			newPacket := append(transIDFlags, packet.data[4:]...)
-			packet.clientConn.WriteToUDP(newPacket, packet.clientAddr)
+			transIDFlags := append(request.data[:2], []byte{0x81, 0x83}...)
+			newPacket := append(transIDFlags, request.data[len(transIDFlags):]...)
+			request.clientConn.WriteToUDP(newPacket, request.clientAddr)
 			return
 		}
 	}
@@ -161,26 +161,26 @@ func resolve(p *Pool, packet Packet, mainLog *log.Logger) {
 		cacheKey := createCacheKey(rr.cacheKey)
 
 		// Get the cached entry if we have one.
-		if data, ok := queryCache.Get(cacheKey); ok {
+		if query, ok := queryCache.Get(cacheKey); ok {
 			queryCache.log.Printf("\x1b[32;1mCache hit for host: %s rtype: %s\x1b[0m\n", rr.hostname, rr.rType)
 			// TODO: Check that this lock actually works as expected.
 			// Then maybe move the logic into query cache?
 			queryCache.mu.Lock()
 			// Prepend the transaction id to the payload.
-			responsePacket := append(packet.data[:2], data[2:]...)
+			responsePacket := append(request.data[:2], query.data[2:]...)
 			queryCache.mu.Unlock()
-			packet.clientConn.WriteToUDP(responsePacket, packet.clientAddr)
+			request.clientConn.WriteToUDP(responsePacket, request.clientAddr)
 			return
 		}
 	}
 
 	// Otherwise, send it on.
 	select {
-	case p.packets <- packet:
+	case p.requests <- request:
 	default:
 		p.log.Println("[main] Dropping oldest request")
-		<-p.packets
-		p.packets <- packet
+		<-p.requests
+		p.requests <- request
 	}
 
 }
