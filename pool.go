@@ -6,6 +6,14 @@ import (
 	"time"
 )
 
+const (
+	workerQueueSize       = 10
+	reconnectionQueueSize = 10
+	requestQueueSize      = 10
+)
+
+const statsFrequency = 10 * time.Second
+
 // Worker represents a worker in the pool.
 type Worker struct {
 	host       string
@@ -26,30 +34,28 @@ type Pool struct {
 // TODO: Worker channels should probably be scoped to the size of the resolvers?
 func NewPool() *Pool {
 	return &Pool{
-		workers:   make(chan Worker, 10),
-		reconnect: make(chan Worker, 10),
-		requests:  make(chan Request, 10),
+		workers:   make(chan Worker, workerQueueSize),
+		reconnect: make(chan Worker, reconnectionQueueSize),
+		requests:  make(chan Request, requestQueueSize),
 		log:       log.New(os.Stdout, "[pool] ", log.LstdFlags|log.Lmsgprefix),
 	}
 }
 
 // NewWorker adds a new worker to the Pool.
-func (p *Pool) NewWorker(host, serverName string) {
-	w := Worker{
+func (p *Pool) NewWorker(host, serverName string) Worker {
+	return Worker{
 		host:       host,
 		serverName: serverName,
 		requests:   make(chan Request),
 		done:       make(chan struct{}),
 	}
-	p.workers <- w
-	go p.worker(w)
 }
 
 // Stats prints out connection stats every x seconds.
 func (p *Pool) Stats() {
 	for {
 		p.log.Printf("[stats] Requests: %d, Reconnecting: %d, Workers: %d\n", len(p.requests), len(p.reconnect), len(p.workers))
-		time.Sleep(10 * time.Second)
+		time.Sleep(statsFrequency)
 	}
 }
 
@@ -57,8 +63,15 @@ func (p *Pool) Stats() {
 func (p *Pool) ConnectionManagement() {
 	for reconnect := range p.reconnect {
 		p.log.Printf("Reconnecting %s\n", reconnect.host)
-		p.NewWorker(reconnect.host, reconnect.serverName)
+
+		w := p.NewWorker(reconnect.host, reconnect.serverName)
+		p.AddWorker(w)
 	}
+}
+
+func (p *Pool) AddWorker(w Worker) {
+	p.workers <- w
+	go p.worker(w)
 }
 
 // worker creates a new underlying pconn and assigns it a ResponseCache.

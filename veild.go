@@ -101,7 +101,8 @@ func Run(config *Config) {
 	// Load each resolver into the pool.
 	for _, resolver := range resolvers.Resolvers {
 		if ok := addHostForPort(resolver.Address, config.OutboundPort); ok {
-			pool.NewWorker(resolver.Address, resolver.Hostname)
+			w := pool.NewWorker(resolver.Address, resolver.Hostname)
+			pool.AddWorker(w)
 		}
 	}
 
