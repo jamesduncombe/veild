@@ -14,16 +14,17 @@ const ResponsePacketLength = 2048
 
 // PConn holds persistent connections.
 type PConn struct {
-	mu         sync.RWMutex
 	host       string
 	serverName string
 	writeCh    chan Request
 	closeCh    chan struct{}
 	conn       *tls.Conn
 	cache      *ResponseCache
-	start      time.Time
-	lastReq    time.Time
 	log        *log.Logger
+
+	mu      sync.RWMutex
+	start   time.Time
+	lastReq time.Time
 }
 
 // NewPConn creates a new PConn which is an actual connection to an upstream DNS server.
@@ -44,7 +45,7 @@ func NewPConn(rc *ResponseCache, worker Worker) (*PConn, error) {
 retry:
 	pc.log.Printf("Dialing connection: %s\n", pc.host)
 
-	conn, err := dialConn(pc.host, pc.serverName)
+	conn, err := pc.dialConn()
 	if err != nil {
 		pc.log.Printf("Failed to connect to: %s, retrying in %d seconds\n", pc.host, t)
 		// Back off for t seconds (exponential backoff).
@@ -62,9 +63,9 @@ retry:
 }
 
 // dialConn handles dialing the outbound connection to the underlying DNS server.
-func dialConn(host, serverName string) (*tls.Conn, error) {
-	return tls.Dial("tcp", host, &tls.Config{
-		ServerName: serverName,
+func (pc *PConn) dialConn() (*tls.Conn, error) {
+	return tls.Dial("tcp", pc.host, &tls.Config{
+		ServerName: pc.serverName,
 		MinVersion: tls.VersionTLS13,
 	})
 }
