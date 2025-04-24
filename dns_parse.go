@@ -51,21 +51,22 @@ func NewRR(data []byte) (*RR, error) {
 
 	nameType, err := sliceNameType(data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating rr: %w", err)
 	}
 
 	host := parseDomainName(nameType[:len(nameType)-2])
 	rtype := binary.BigEndian.Uint16(nameType[len(nameType)-2:])
 
-	if rType, ok := ResourceTypes[rtype]; ok {
-		return &RR{
-			hostname: host,
-			rType:    rType,
-			cacheKey: nameType,
-		}, nil
+	rType, ok := ResourceTypes[rtype]
+	if !ok {
+		return nil, ErrInvalidRType
 	}
 
-	return nil, ErrInvalidRType
+	return &RR{
+		hostname: host,
+		rType:    rType,
+		cacheKey: nameType,
+	}, nil
 }
 
 // parseDomainName takes a slice of bytes and returns a parsed domain name.

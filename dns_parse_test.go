@@ -24,21 +24,23 @@ func Test_sliceNameType(t *testing.T) {
 		0x61, 0x69, 0x6c, 0x3, 0x63, 0x6f, 0x6d, 0x0,
 		0x00, 0x01, 0x1, 0x3, 0x5,
 	}
-	shouldBe := []byte{
+
+	want := []byte{
 		0xa, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x6e, 0x6d,
 		0x61, 0x69, 0x6c, 0x3, 0x63, 0x6f, 0x6d, 0x0,
 		0x00, 0x01,
 	}
-	nameType, _ := sliceNameType(packet)
-	if !reflect.DeepEqual(nameType, shouldBe) {
-		t.Errorf("wanted %s, got %s", shouldBe, nameType)
+
+	got, _ := sliceNameType(packet)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("wanted %s, got %s", want, got)
 	}
 
 	failureCase := []byte{0x01}
 
 	_, err := sliceNameType(failureCase)
 	if err != ErrInvalidDnsPacket {
-		t.Error("expected error ", err)
+		t.Errorf("expected error %v", err)
 	}
 
 }
@@ -71,23 +73,23 @@ func TestQueryCache_ttlOffsets(t *testing.T) {
 
 	tests := []struct {
 		filename string
-		shouldBe []int
+		want     []int
 	}{
 		{
 			filename: "fixtures/phishing-detection.api.cx.metamask.io_a.pkt",
-			shouldBe: []int{61, 128, 186, 213, 251, 307, 321},
+			want:     []int{61, 128, 186, 213, 251, 307, 321},
 		},
 	}
 
 	for i, test := range tests {
 		data, _ := os.ReadFile(test.filename)
-		offsets, _ := ttlOffsets(data)
-		if len(offsets) != len(test.shouldBe) {
-			t.Errorf("wanted %d length got %d", len(offsets), len(test.shouldBe))
+		got, _ := ttlOffsets(data)
+		if len(got) != len(test.want) {
+			t.Errorf("wanted %d length got %d", len(got), len(test.want))
 			break
 		}
-		if offsets[i] != test.shouldBe[i] {
-			t.Errorf("wanted %d offset got %d", offsets[i], test.shouldBe[i])
+		if got[i] != test.want[i] {
+			t.Errorf("wanted %d offset got %d", got[i], test.want[i])
 		}
 	}
 }
