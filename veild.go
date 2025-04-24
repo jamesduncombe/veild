@@ -30,14 +30,6 @@ var (
 	blacklisting = false
 )
 
-const (
-	// PacketLength is the maximum allowed packet length for a DNS packet.
-	PacketLength int = 512
-
-	// HeaderLength is the length of a normal DNS request/response header (in bytes).
-	HeaderLength int = 12
-)
-
 // Run starts up the app.
 func Run(config *Config) {
 
@@ -108,11 +100,11 @@ func Run(config *Config) {
 
 	// Enter the listening loop.
 	for {
-		buff := make([]byte, PacketLength)
+		buff := make([]byte, DnsPacketLength)
 		n, clientAddr, _ := conn.ReadFromUDP(buff)
 
 		// Potential to catch small packets here.
-		if n < HeaderLength {
+		if n < DnsHeaderLength {
 			mainLog.Println("Packet length too small")
 			continue
 		}
@@ -135,7 +127,7 @@ func Run(config *Config) {
 // resolve handles individual requests.
 func resolve(p *Pool, request Request, mainLog *log.Logger) {
 
-	rr, err := NewRR(request.data[HeaderLength:])
+	rr, err := NewRR(request.data[DnsHeaderLength:])
 	if err != nil {
 		mainLog.Println("Problem handling RR")
 		mainLog.Println(err)

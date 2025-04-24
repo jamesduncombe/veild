@@ -58,7 +58,7 @@ func (rc *ResponseCache) Entries(f io.Writer) {
 	defer rc.mu.Unlock()
 
 	for _, response := range rc.responses {
-		rr, _ := NewRR(response.data[HeaderLength:])
+		rr, _ := NewRR(response.data[DnsHeaderLength:])
 
 		fmt.Fprintf(f, "%s, %s\n", rr.hostname, rr.rType)
 	}

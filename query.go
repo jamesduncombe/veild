@@ -13,7 +13,7 @@ type Query struct {
 }
 
 func (q Query) cacheKey() cacheKey {
-	nameType, _ := sliceNameType(q.data[12:])
+	nameType, _ := sliceNameType(q.data[DnsHeaderLength:])
 	return createCacheKey(nameType)
 }
 

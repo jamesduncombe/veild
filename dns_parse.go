@@ -7,6 +7,14 @@ import (
 	"fmt"
 )
 
+const (
+	// DnsPacketLength is the maximum allowed packet length for a DNS packet.
+	DnsPacketLength int = 512
+
+	// DnsHeaderLength is the length of a normal DNS request/response header (in bytes).
+	DnsHeaderLength int = 12
+)
+
 // RR represents a domain name and resource type.
 type RR struct {
 	hostname string
@@ -116,7 +124,7 @@ func ttlOffsets(data []byte) ([]int, error) {
 	total := int(answers + authority)
 
 	// Skip first 12 bytes (always the header, no TTLs).
-	offset := HeaderLength
+	offset := DnsHeaderLength
 
 	// Attempting to jump over Questions section.
 
