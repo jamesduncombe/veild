@@ -18,15 +18,15 @@ const statsFrequency = 10 * time.Second
 type Worker struct {
 	host       string
 	serverName string
-	requests   chan Request
+	requests   chan *Request
 	done       chan struct{}
 }
 
 // Pool represents a new connection pool.
 type Pool struct {
-	workers   chan Worker
-	reconnect chan Worker
-	requests  chan Request
+	workers   chan *Worker
+	reconnect chan *Worker
+	requests  chan *Request
 	log       *log.Logger
 }
 
@@ -34,19 +34,19 @@ type Pool struct {
 // TODO: Worker channels should probably be scoped to the size of the resolvers?
 func NewPool() *Pool {
 	return &Pool{
-		workers:   make(chan Worker, workerQueueSize),
-		reconnect: make(chan Worker, reconnectionQueueSize),
-		requests:  make(chan Request, requestQueueSize),
+		workers:   make(chan *Worker, workerQueueSize),
+		reconnect: make(chan *Worker, reconnectionQueueSize),
+		requests:  make(chan *Request, requestQueueSize),
 		log:       log.New(os.Stdout, "[pool] ", log.LstdFlags|log.Lmsgprefix),
 	}
 }
 
 // NewWorker adds a new worker to the Pool.
-func (p *Pool) NewWorker(host, serverName string) Worker {
-	return Worker{
+func (p *Pool) NewWorker(host, serverName string) *Worker {
+	return &Worker{
 		host:       host,
 		serverName: serverName,
-		requests:   make(chan Request),
+		requests:   make(chan *Request),
 		done:       make(chan struct{}),
 	}
 }
@@ -69,13 +69,13 @@ func (p *Pool) ConnectionManagement() {
 	}
 }
 
-func (p *Pool) AddWorker(w Worker) {
+func (p *Pool) AddWorker(w *Worker) {
 	p.workers <- w
 	go p.worker(w)
 }
 
 // worker creates a new underlying pconn and assigns it a ResponseCache.
-func (p *Pool) worker(worker Worker) {
+func (p *Pool) worker(worker *Worker) {
 
 	// Each pconn has it's own ResponseCache.
 	responseCache := NewResponseCache()

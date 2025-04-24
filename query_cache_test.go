@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-func newQuery() Query {
-	return Query{
+func newQuery() *Query {
+	return &Query{
 		data: []byte{
 			0x53, 0x1, 0x1, 0x20, 0x0, 0x1, 0x0, 0x0, 0x0, 0x0,
 			0x0, 0x1, 0xa, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x6e,
@@ -51,6 +51,6 @@ func TestQueryCache_Reaper(t *testing.T) {
 	n := len(file)
 
 	offsets, _ := ttlOffsets(file[:n])
-	queryCache.Set(Query{file[:n], offsets, time.Now()})
+	queryCache.Set(&Query{file[:n], offsets, time.Now()})
 	queryCache.reaper()
 }

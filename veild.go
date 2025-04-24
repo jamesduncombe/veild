@@ -109,7 +109,7 @@ func Run(config *Config) {
 			continue
 		}
 
-		request := Request{
+		request := &Request{
 			clientAddr: clientAddr,
 			clientConn: conn,
 			data:       buff[:n],
@@ -125,7 +125,7 @@ func Run(config *Config) {
 }
 
 // resolve handles individual requests.
-func resolve(p *Pool, request Request, mainLog *log.Logger) {
+func resolve(p *Pool, request *Request, mainLog *log.Logger) {
 
 	rr, err := NewRR(request.data[DnsHeaderLength:])
 	if err != nil {

@@ -12,19 +12,19 @@ import (
 // QueryCache holds the main structure of the query cache.
 type QueryCache struct {
 	mu      sync.RWMutex
-	queries map[cacheKey]Query
+	queries map[cacheKey]*Query
 	log     *log.Logger
 }
 
 // NewQueryCache handles QueryCache initialization.
 func NewQueryCache() *QueryCache {
 	return &QueryCache{
-		queries: make(map[cacheKey]Query),
+		queries: make(map[cacheKey]*Query),
 		log:     log.New(os.Stdout, "[query_cache] ", log.LstdFlags|log.Lmsgprefix),
 	}
 }
 
-func (qc *QueryCache) Set(value Query) {
+func (qc *QueryCache) Set(value *Query) {
 	qc.mu.Lock()
 	defer qc.mu.Unlock()
 
@@ -32,7 +32,7 @@ func (qc *QueryCache) Set(value Query) {
 }
 
 // Get gets an entry from the query cache.
-func (qc *QueryCache) Get(key cacheKey) (Query, bool) {
+func (qc *QueryCache) Get(key cacheKey) (*Query, bool) {
 	qc.mu.Lock()
 	defer qc.mu.Unlock()
 
@@ -40,8 +40,8 @@ func (qc *QueryCache) Get(key cacheKey) (Query, bool) {
 		// Try decrementing the TTL by n seconds.
 		decBy := uint32(time.Since(query.creation).Seconds())
 
-		if newQuery, ok := query.decTTL(decBy); ok {
-			return newQuery, true
+		if query.decTTL(decBy) {
+			return query, true
 		}
 
 		// Remove it, must be too old.
@@ -49,7 +49,7 @@ func (qc *QueryCache) Get(key cacheKey) (Query, bool) {
 		delete(qc.queries, key)
 	}
 
-	return Query{}, false
+	return nil, false
 }
 
 // Entries outputs all the current entries in the cache along with their TTLs.
@@ -85,8 +85,8 @@ func (qc *QueryCache) reaper() {
 
 		decBy := uint32(now.Sub(query.creation).Seconds())
 
-		if query, ok := query.decTTL(decBy); ok {
-			qc.queries[k] = Query{query.data, query.offsets, now}
+		if query.decTTL(decBy) {
+			qc.queries[k] = &Query{query.data, query.offsets, now}
 			continue
 		}
 		qc.log.Printf("\x1b[31;1mRemoving: 0x%x\x1b[0m\n", k)

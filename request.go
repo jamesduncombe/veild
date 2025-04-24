@@ -13,6 +13,6 @@ type Request struct {
 	start      time.Time
 }
 
-func (p Request) cacheKey() cacheKey {
-	return createCacheKey(p.data[:2])
+func (r *Request) cacheKey() cacheKey {
+	return createCacheKey(r.data[:2])
 }

@@ -21,12 +21,12 @@ func TestQuery_decTTL(t *testing.T) {
 		originalTtls = append(originalTtls, binary.BigEndian.Uint32(file[offset:offset+4]))
 	}
 
-	query := Query{offsets: offsets, data: file}
+	query := &Query{offsets: offsets, data: file}
 
-	newQuery, _ := query.decTTL(1)
+	query.decTTL(1)
 
 	for i, offset := range offsets {
-		got := binary.BigEndian.Uint32(newQuery.data[offset : offset+4])
+		got := binary.BigEndian.Uint32(query.data[offset : offset+4])
 		want := originalTtls[i] - 1
 
 		// Check TTL is decremented by 1.

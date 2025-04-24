@@ -16,7 +16,7 @@ const ResponsePacketLength = 2048
 type PConn struct {
 	host       string
 	serverName string
-	writeCh    chan Request
+	writeCh    chan *Request
 	closeCh    chan struct{}
 	conn       *tls.Conn
 	cache      *ResponseCache
@@ -28,11 +28,11 @@ type PConn struct {
 }
 
 // NewPConn creates a new PConn which is an actual connection to an upstream DNS server.
-func NewPConn(rc *ResponseCache, worker Worker) (*PConn, error) {
+func NewPConn(rc *ResponseCache, worker *Worker) (*PConn, error) {
 	pc := &PConn{
 		host:       worker.host,
 		serverName: worker.serverName,
-		writeCh:    make(chan Request, 1),
+		writeCh:    make(chan *Request, 1),
 		closeCh:    make(chan struct{}),
 		cache:      rc,
 		start:      time.Now(),
@@ -111,7 +111,7 @@ func (pc *PConn) readLoop() {
 					pc.cache.log.Printf("\x1b[35;1m%v\x1b[0m\n", err)
 					continue
 				}
-				queryCache.Set(Query{buff[2:], offsets, time.Now()})
+				queryCache.Set(&Query{buff[2:], offsets, time.Now()})
 			}
 
 			// Shave off first 2 bytes for the length and write back to client over UDP.
