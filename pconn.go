@@ -45,6 +45,11 @@ func NewPConn(rc *ResponseCache, worker *Worker) (*PConn, error) {
 retry:
 	pc.log.Printf("Dialing connection: %s\n", pc.host)
 
+	// Reset duration back to 1 if we've exceeded a reasonale backoff.
+	if t >= 1024 {
+		t = 1
+	}
+
 	conn, err := pc.dialConn()
 	if err != nil {
 		pc.log.Printf("Failed to connect to: %s, retrying in %d seconds\n", pc.host, t)
