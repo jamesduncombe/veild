@@ -135,7 +135,7 @@ func ttlOffsets(data []byte) ([]int, error) {
 
 	// Parsing Answers and Authority RRs.
 
-	for n := 0; n < total; n++ {
+	for range total {
 
 		// Handle NAME field.
 		// This could be a pointer or a label.
