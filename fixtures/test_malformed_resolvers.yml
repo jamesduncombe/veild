@@ -1,0 +1,7 @@
+resolvers:
+
+  # Quad9 DNS servers
+  # See: https://www.quad9.net/faq/#Does_Quad9_support_DNS_over_TLS
+  # Secure IP: 9.9.9.9 Provides: Security blocklist, DNSSEC, No EDNS Client-Subnet sent.
+  - address: "9.9.9.9:853"
+    hostname: "

@@ -1,6 +1,7 @@
 package veild
 
 import (
+	"errors"
 	"os"
 
 	"gopkg.in/yaml.v2"
@@ -28,6 +29,11 @@ type Resolvers struct {
 	Resolvers []Resolver
 }
 
+var (
+	ErrReadingResolversFile   = errors.New("reading resolvers file")
+	ErrUnmarshallingResolvers = errors.New("error unmarshalling resolvers file")
+)
+
 // NewResolvers loads of a list of resolvers from a file.
 func NewResolvers(resolversPath string) (*Resolvers, error) {
 	resolvers := &Resolvers{}
@@ -37,15 +43,12 @@ func NewResolvers(resolversPath string) (*Resolvers, error) {
 
 	if resolversPath == "" {
 		resolversList = []byte(defaultResolver)
-	} else {
-		resolversList, err = os.ReadFile(resolversPath)
-		if err != nil {
-			return nil, err
-		}
+	} else if resolversList, err = os.ReadFile(resolversPath); err != nil {
+		return nil, errors.Join(ErrReadingResolversFile, err)
 	}
 
 	if err := yaml.Unmarshal(resolversList, &resolvers); err != nil {
-		return nil, err
+		return nil, errors.Join(ErrUnmarshallingResolvers, err)
 	}
 
 	return resolvers, nil
