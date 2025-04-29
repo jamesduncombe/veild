@@ -88,34 +88,41 @@ func (pc *PConn) readLoop() {
 		buff := make([]byte, ResponsePacketLength)
 		n, err := pc.conn.Read(buff)
 
-		pc.log.Printf("[debug] Buff used: %v - size: %v\n", n, len(buff))
-		buff = buff[:n]
-
 		// On any error exit.
+		// TODO: Probably should at least wrap this error.
 		if err != nil {
 			pc.log.Printf("Connection gone away: %s\n", pc.host)
-			break
+			return
 		}
 
-		key := createCacheKey(buff[2:4])
+		// Discard first 2 bytes (packet length) and truncate to length of received bytes.
+		// SEE: https://datatracker.ietf.org/doc/html/rfc1035#section-4.2.2
+		buff = buff[2:n]
 
-		reqID := binary.BigEndian.Uint16(buff[2:4])
+		rawRequestId := buff[:2]
+		key := createCacheKey(rawRequestId)
+		reqID := binary.BigEndian.Uint16(rawRequestId)
 
 		if request, ok := pc.cache.Get(key); ok {
 
 			pc.cache.log.Printf("Match for \x1b[31;1m0x%x\x1b[0m\n", reqID)
 
 			if caching {
-				offsets, err := ttlOffsets(buff[2:])
+				offsets, err := ttlOffsets(buff)
 				if err != nil {
 					pc.cache.log.Printf("\x1b[35;1m%v\x1b[0m\n", err)
 					continue
 				}
-				queryCache.Set(&Query{buff[2:], offsets, time.Now()})
+
+				// Only cache if there are TTLs to decrement otherwise the cache will
+				// get filled with entries that can't be evicted.
+				if len(offsets) > 0 {
+					queryCache.Set(&Query{buff, offsets, time.Now()})
+				}
 			}
 
-			// Shave off first 2 bytes for the length and write back to client over UDP.
-			_, err := request.clientConn.WriteToUDP(buff[2:], request.clientAddr)
+			// Write back to client over UDP.
+			_, err = request.clientConn.WriteToUDP(buff, request.clientAddr)
 			if err != nil {
 				pc.log.Printf("Error writting back to client\n")
 				break
@@ -146,6 +153,8 @@ func (pc *PConn) writeLoop() {
 			pc.mu.Unlock()
 
 			// Calculate packet length and pack into uint16 (BigEndian).
+			// Because we're writing this out over TCP we need to prepend the length.
+			// SEE: https://datatracker.ietf.org/doc/html/rfc1035#section-4.2.2
 			packetLength := make([]byte, 2)
 			binary.BigEndian.PutUint16(packetLength, uint16(len(request.data)))
 
