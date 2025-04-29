@@ -136,16 +136,14 @@ func resolve(p *Pool, request *Request, mainLog *log.Logger) {
 	mainLog.Printf("Request for host: \x1b[31;1m%s\x1b[0m rtype: \x1b[31;1m%s\x1b[0m\n", rr.hostname, rr.rType)
 
 	// Handle blacklisted domains if enabled.
-	// See: https://en.wikipedia.org/wiki/DNS_sinkhole
-	if blacklisting {
-		if blacklist.Exists(rr.hostname) {
-			blacklist.log.Printf("\x1b[31;1mMatch: %s\x1b[0m\n", rr.hostname)
-			// Reform the query as a response with 0 answers.
-			transIDFlags := append(request.data[:2], []byte{0x81, 0x83}...)
-			newPacket := append(transIDFlags, request.data[len(transIDFlags):]...)
-			request.clientConn.WriteToUDP(newPacket, request.clientAddr)
-			return
-		}
+	// SEE: https://en.wikipedia.org/wiki/DNS_sinkhole
+	if blacklisting && blacklist.Exists(rr.hostname) {
+		blacklist.log.Printf("\x1b[31;1mMatch: %s\x1b[0m\n", rr.hostname)
+		// Reform the query as a response with 0 answers.
+		transIDFlags := append(request.data[:2], []byte{0x81, 0x83}...)
+		newPacket := append(transIDFlags, request.data[len(transIDFlags):]...)
+		request.clientConn.WriteToUDP(newPacket, request.clientAddr)
+		return
 	}
 
 	// Handle caching if enabled.
