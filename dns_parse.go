@@ -82,11 +82,11 @@ func parseDomainName(data []byte) string {
 	parts := make([]byte, 0)
 	i := 0
 	for {
-		if data[i] == 0x00 {
+		if data[i] == 0x0 {
 			// End of label/name.
 			break
 		}
-		if i != 0x00 {
+		if i != 0x0 {
 			// Append a `.`.
 			parts = append(parts, 0x2e)
 		}
@@ -101,8 +101,8 @@ func parseDomainName(data []byte) string {
 // sliceNameType takes a DNS request and slices out the name + type of the request.
 // This is mainly used for the cache key when storing a request.
 func sliceNameType(packet []byte) ([]byte, error) {
-	// Scan for end of name (0x00).
-	if i := bytes.IndexByte(packet, 0x00); i != -1 {
+	// Scan for end of name (0x0).
+	if i := bytes.IndexByte(packet, 0x0); i != -1 {
 		// Return the name and type.
 		return packet[:i+3], nil
 	}
@@ -121,7 +121,7 @@ func ttlOffsets(data []byte) ([]int, error) {
 	answers := binary.BigEndian.Uint16(data[6:8])
 	authority := binary.BigEndian.Uint16(data[8:10])
 
-	total := int(answers + authority)
+	totalResourceRecords := int(answers + authority)
 
 	// Skip first 12 bytes (always the header, no TTLs).
 	offset := DnsHeaderLength
@@ -129,35 +129,48 @@ func ttlOffsets(data []byte) ([]int, error) {
 	// Attempting to jump over Questions section.
 
 	// Quickly run through the query (single one).
-	i := bytes.IndexByte(data[offset:], 0x00)
+	i := bytes.IndexByte(data[offset:], 0x0)
 	i += 5 // jump 1 + 4 more bytes (End of Name, Type and Class).
 	offset += i
 
 	// Parsing Answers and Authority RRs.
-
-	for range total {
-
-		// Handle NAME field.
-		// This could be a pointer or a label.
+	for range totalResourceRecords {
 
 		// Check we're not overrunning the length of the message.
 		if len(data) < offset+1 {
 			return nil, ErrProblemParsingOffsets
 		}
 
-		marker := data[offset : offset+1]
-		c := marker[0]
+		// Can be:
+		// SEE: https://www.rfc-editor.org/rfc/rfc1035
+		// - a sequence of labels ending in a zero octet
+		// - a pointer (0xc0, followed by a two-octet offset)
+		// - a sequence of labels ending with a pointer
 
-		switch c & 0xc0 {
+	ResourceName:
+		for {
 
-		case 0xc0: // Pointer ref, only 2 bytes.
-			offset += 2
+			switch {
+			case data[offset]&0xc0 == 0xc0:
+				// Pointer to another location in the packet.
+				// The next byte is the offset.
+				offset += 2 // Skip the pointer.
 
-		case 0x00: // End of record.
-			offset++
+				// Peek at the next byte to see if it's a null byte.
+				// If it is then we can break out of the loop.
+				if data[offset] == 0x0 {
+					break ResourceName
+				}
 
-		default:
-			return nil, fmt.Errorf("error on marker: 0x%x", marker)
+			case data[offset] == 0x0:
+				// End of the name.
+				offset++
+				break ResourceName
+
+			default:
+				// Advance and continue checking, this might not be the end.
+				offset++
+			}
 
 		}
 

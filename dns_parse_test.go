@@ -81,11 +81,16 @@ func TestQueryCache_ttlOffsets(t *testing.T) {
 			filename: "fixtures/phishing-detection.api.cx.metamask.io_a.pkt",
 			want:     []int{61, 128, 186, 213, 251, 307, 321},
 		},
+		{
+			filename: "fixtures/aax-eu.amazon.co.uk_a.pkt",
+			want:     []int{62, 156},
+		},
 	}
 
 	for i, test := range tests {
 		data, _ := os.ReadFile(test.filename)
 		got, _ := ttlOffsets(data)
+
 		if len(got) != len(test.want) {
 			t.Errorf("wanted %d length got %d", len(got), len(test.want))
 			break
