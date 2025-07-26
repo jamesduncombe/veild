@@ -1,6 +1,6 @@
 # veild
 
-[![Build Status](https://github.com/jamesduncombe/veild/actions/workflows/build.yml/badge.svg)](https://github.com/jamesduncombe/veild/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/jamesduncombe/veild)](https://goreportcard.com/report/github.com/jamesduncombe/veild) [![godoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/jamesduncombe/veild)
+[![Build Status](https://github.com/jamesduncombe/veild/actions/workflows/ci.yml/badge.svg)](https://github.com/jamesduncombe/veild/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/jamesduncombe/veild)](https://goreportcard.com/report/github.com/jamesduncombe/veild) [![godoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/jamesduncombe/veild)
 
 Stub resolver for routing DNS queries over TLS (DNS-over-TLS).
 
