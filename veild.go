@@ -191,11 +191,9 @@ func cleanup(mainLog *log.Logger) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	go func() {
-		<-c
-		mainLog.Printf("Exiting...\n")
-		mainLog.Printf("[stats] Total requests served: %d\n", numRequests.Load())
+	<-c
+	mainLog.Printf("Exiting...\n")
+	mainLog.Printf("[stats] Total requests served: %d\n", numRequests.Load())
 
-		os.Exit(0)
-	}()
+	os.Exit(0)
 }
