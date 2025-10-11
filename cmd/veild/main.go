@@ -14,7 +14,7 @@ var veilVersion string
 // Flags for setting up veil.
 var (
 	listenAddr    string
-	caching       bool
+	noCaching     bool
 	outboundPort  uint
 	blacklistFile string
 	resolversFile string
@@ -36,26 +36,26 @@ func main() {
 
 	// Flags init.
 	flag.StringVar(&listenAddr, "l", "127.0.0.1:53", "Listen on `address:port` for serving requests")
-	flag.UintVar(&outboundPort, "p", 853, "Default outbound `port` (443 (DNS-over-TLS) or 853 (DNS-over-TLS))")
-	flag.BoolVar(&caching, "c", true, "Turn off caching (on by default)")
+	flag.UintVar(&outboundPort, "p", 853, "Default outbound `port` 853 (standard DNS-over-TLS port)")
+	flag.BoolVar(&noCaching, "no-cache", false, "If specified, turn off caching")
 	flag.StringVar(&blacklistFile, "b", "", "Read `blacklist_file` and enable blacklisting Ad domains")
 	flag.StringVar(&resolversFile, "r", "", "Read resolvers from `resolvers_file` and load them")
-	flag.BoolVar(&version, "v", false, "Version info")
+	flag.BoolVar(&version, "version", false, "Displays the version of Veild")
 	flag.Parse()
 
 	if version {
-		fmt.Println(veilVersion)
+		fmt.Printf("veild: %s\n", veilVersion)
 		os.Exit(0)
 	}
 
 	// Sort out the config.
 	config := &veild.Config{
-		Version:       veilVersion,
 		ListenAddr:    listenAddr,
-		Caching:       caching,
 		OutboundPort:  outboundPort,
+		Caching:       !noCaching,
 		BlacklistFile: blacklistFile,
 		ResolversFile: resolversFile,
+		Version:       veilVersion,
 	}
 
 	// Start Veil.
