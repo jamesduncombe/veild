@@ -45,7 +45,7 @@ func NewPConn(rc *ResponseCache, worker *Worker) (*PConn, error) {
 retry:
 	pc.log.Printf("Dialing connection: %s\n", pc.host)
 
-	// Reset duration back to 1 if we've exceeded a reasonale backoff.
+	// Reset duration back to 1 if we've exceeded a reasonable backoff.
 	if t >= 1024 {
 		t = 1
 	}
@@ -137,7 +137,7 @@ func (pc *PConn) readLoop() {
 			// Calculate ellapsed time since start of request.
 			elapsed := time.Since(request.start)
 
-			pc.log.Printf("[pool] Trans.ID: \x1b[31;1m0x%x\x1b[0m Query time: \x1b[31;1m%v\x1b[0m\n",
+			pc.log.Printf("Trans.ID: \x1b[31;1m0x%x\x1b[0m Query time: \x1b[31;1m%v\x1b[0m\n",
 				reqID,
 				elapsed,
 			)
