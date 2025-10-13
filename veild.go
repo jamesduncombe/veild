@@ -103,9 +103,13 @@ func Run(config *Config) {
 
 	// Load each resolver into the pool.
 	for _, resolver := range resolvers.Resolvers {
-		if ok := addHostForPort(resolver.Address, config.OutboundPort); ok {
+		if ok, err := addHostForPort(resolver.Address, config.OutboundPort); ok {
+
 			w := pool.NewWorker(resolver.Address, resolver.Hostname)
 			pool.AddWorker(w)
+		} else if err != nil {
+			mainLog.Warn("Problem parsing resolver address", "address", resolver.Address, "error", err)
+			continue
 		}
 	}
 
