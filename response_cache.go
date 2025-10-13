@@ -3,7 +3,7 @@ package veild
 import (
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"sync"
 )
@@ -12,14 +12,14 @@ import (
 type ResponseCache struct {
 	mu        sync.Mutex
 	responses map[cacheKey]*Request
-	log       *log.Logger
+	log       *slog.Logger
 }
 
 // NewResponseCache handles ResponseCache initialization.
 func NewResponseCache() *ResponseCache {
 	return &ResponseCache{
 		responses: make(map[cacheKey]*Request),
-		log:       log.New(os.Stdout, "[response_cache] ", log.LstdFlags|log.Lmsgprefix),
+		log:       slog.New(slog.NewTextHandler(os.Stdout, nil)).With("module", "response_cache"),
 	}
 }
 

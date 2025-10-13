@@ -3,7 +3,7 @@ package veild
 import (
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -13,14 +13,14 @@ import (
 type QueryCache struct {
 	mu      sync.RWMutex
 	queries map[cacheKey]*Query
-	log     *log.Logger
+	log     *slog.Logger
 }
 
 // NewQueryCache handles QueryCache initialization.
 func NewQueryCache() *QueryCache {
 	return &QueryCache{
 		queries: make(map[cacheKey]*Query),
-		log:     log.New(os.Stdout, "[query_cache] ", log.LstdFlags|log.Lmsgprefix),
+		log:     slog.New(slog.NewTextHandler(os.Stdout, nil)).With("module", "query_cache"),
 	}
 }
 
@@ -45,7 +45,7 @@ func (qc *QueryCache) Get(key cacheKey) (*Query, bool) {
 		}
 
 		// Remove it, must be too old.
-		qc.log.Printf("\x1b[31;1m[get] Removing: 0x%x\x1b[0m\n", key)
+		qc.log.Info("[get] Removing: 0x%x", key)
 		delete(qc.queries, key)
 	}
 
@@ -89,12 +89,12 @@ func (qc *QueryCache) reaper() {
 			qc.queries[k] = &Query{query.data, query.offsets, now}
 			continue
 		}
-		qc.log.Printf("\x1b[31;1mRemoving: 0x%x\x1b[0m\n", k)
+		qc.log.Info("Removing: 0x%x", k)
 		delete(qc.queries, k)
 	}
 
 	elapsed := time.Since(t)
 	numEntries := len(qc.queries)
 
-	qc.log.Printf("Spent in loop: %v - entries: %d\n", elapsed, numEntries)
+	qc.log.Debug("Spent in loop: %v - entries: %d", elapsed, numEntries)
 }

@@ -3,7 +3,8 @@ package veild
 import (
 	"crypto/tls"
 	"encoding/binary"
-	"log"
+	"fmt"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -20,7 +21,7 @@ type PConn struct {
 	closeCh    chan struct{}
 	conn       *tls.Conn
 	cache      *ResponseCache
-	log        *log.Logger
+	log        *slog.Logger
 
 	mu      sync.RWMutex
 	start   time.Time
@@ -37,13 +38,13 @@ func NewPConn(rc *ResponseCache, worker *Worker) (*PConn, error) {
 		cache:      rc,
 		start:      time.Now(),
 		lastReq:    time.Now(),
-		log:        log.New(os.Stdout, "[pconn] ", log.LstdFlags|log.Lmsgprefix),
+		log:        slog.New(slog.NewTextHandler(os.Stdout, nil)).With("module", "pconn"),
 	}
 
 	var t time.Duration = 1
 
 retry:
-	pc.log.Printf("Dialing connection: %s\n", pc.host)
+	pc.log.Info("Dialing connection", "port", pc.host)
 
 	// Reset duration back to 1 if we've exceeded a reasonable backoff.
 	if t >= 1024 {
@@ -52,7 +53,7 @@ retry:
 
 	conn, err := pc.dialConn()
 	if err != nil {
-		pc.log.Printf("Failed to connect to: %s, retrying in %d seconds\n", pc.host, t)
+		pc.log.Warn("Failed to connect", "host", pc.host, "reconnecting_in", t)
 		// Back off for t seconds (exponential backoff).
 		time.Sleep(t * time.Second)
 		t = t << 1
@@ -83,12 +84,13 @@ func (pc *PConn) readLoop() {
 		pc.mu.Lock()
 		defer pc.mu.Unlock()
 
-		pc.log.Printf("Closing connection: %s since last request: %v connection lasted: %v\n", pc.host, time.Since(pc.lastReq), time.Since(pc.start))
+		pc.log.Info("Closing connection", "host", pc.host, "last_request", time.Since(pc.lastReq), "lasted", time.Since(pc.start))
 		pc.conn.Close()
 		close(pc.closeCh)
 	}()
 
 	for {
+		pc.log.Debug("Read loop", "host", pc.host)
 
 		buff := make([]byte, ResponsePacketLength)
 		n, err := pc.conn.Read(buff)
@@ -96,7 +98,7 @@ func (pc *PConn) readLoop() {
 		// On any error exit.
 		// TODO: Probably should at least wrap this error.
 		if err != nil {
-			pc.log.Printf("Connection gone away: %s\n", pc.host)
+			pc.log.Info("Connection gone away", "host", pc.host)
 			return
 		}
 
@@ -110,12 +112,12 @@ func (pc *PConn) readLoop() {
 
 		if request, ok := pc.cache.Get(key); ok {
 
-			pc.cache.log.Printf("Match for \x1b[31;1m0x%x\x1b[0m\n", reqID)
+			pc.cache.log.Info(fmt.Sprintf("Match for 0x%x", reqID))
 
 			if caching {
 				offsets, err := ttlOffsets(buff)
 				if err != nil {
-					pc.cache.log.Printf("\x1b[35;1m%v\x1b[0m\n", err)
+					pc.cache.log.Error("Error parsing offsets", "error", fmt.Sprintf("%w", err))
 					continue
 				}
 
@@ -129,18 +131,18 @@ func (pc *PConn) readLoop() {
 			// Write back to client over UDP.
 			_, err = request.clientConn.WriteToUDP(buff, request.clientAddr)
 			if err != nil {
-				pc.log.Printf("Error writting back to client\n")
+				pc.log.Error("Error writting back to client", "error", fmt.Sprintf("%w", err), "client_ip", request.clientAddr)
 				break
 			}
-			pc.log.Printf("Wrote %v back to client\n", n)
+			pc.log.Debug("Wrote bytes back to client", "bytes", n)
 
 			// Calculate ellapsed time since start of request.
 			elapsed := time.Since(request.start)
 
-			pc.log.Printf("Trans.ID: \x1b[31;1m0x%x\x1b[0m Query time: \x1b[31;1m%v\x1b[0m\n",
+			pc.log.Info(fmt.Sprintf("Trans.ID: 0x%x Query time: %v",
 				reqID,
 				elapsed,
-			)
+			), "context", "pool")
 		}
 	}
 
@@ -149,8 +151,11 @@ func (pc *PConn) readLoop() {
 // writeLoop takes DNS requests and forwards them to the upstream DNS server.
 func (pc *PConn) writeLoop() {
 	for {
+		pc.log.Debug("Write loop", "host", pc.host)
 		select {
 		case request := <-pc.writeCh:
+
+			pc.log.Debug("Writing request to upstream", "host", pc.host)
 
 			// Overwrite time of last request.
 			pc.mu.Lock()
@@ -170,6 +175,8 @@ func (pc *PConn) writeLoop() {
 			pc.cache.Set(request)
 
 		case <-pc.closeCh:
+			pc.log.Debug("Connection closed, closing writeCh", "host", pc.host)
+
 			close(pc.writeCh)
 			return
 		}

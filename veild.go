@@ -2,7 +2,10 @@
 package veild
 
 import (
+	"fmt"
 	"log"
+	"log/slog"
+
 	"net"
 	"os"
 	"os/signal"
@@ -33,21 +36,22 @@ var (
 // Run starts up the app.
 func Run(config *Config) {
 
-	mainLog := log.New(os.Stdout, "[main] ", log.LstdFlags|log.Lmsgprefix)
+	mainLog := slog.New(slog.NewTextHandler(os.Stdout, nil)).With("module", "main")
 
-	mainLog.Printf("Starting Veil %s\n", config.Version)
+	mainLog.Info("Starting Veil", "version", config.Version)
 
-	mainLog.Printf("\x1b[31;1mOutbound port set to %d\x1b[0m\n", config.OutboundPort)
+	mainLog.Debug("Setting outbound port", "outbound", config.OutboundPort)
 
 	// Setup blacklist.
 	if config.BlacklistFile != "" {
 		var err error
 		blacklist, err = NewBlacklist(config.BlacklistFile)
-		blacklist.log.Println("Loading blacklist")
+		blacklist.log.Info("Loading blacklist")
 		if err != nil {
-			mainLog.Fatal(err)
+			mainLog.Error(fmt.Sprintf("Error %w", err))
+			os.Exit(1)
 		}
-		blacklist.log.Printf("Loaded %d entries into the blacklist\n", len(blacklist.list))
+		blacklist.log.Info("Loading entries into the blacklist", "entries", len(blacklist.list))
 		blacklisting = true
 	}
 
@@ -58,7 +62,7 @@ func Run(config *Config) {
 		go queryCache.Reaper()
 	} else {
 		queryCache = NewQueryCache()
-		queryCache.log.Println("\x1b[31;1mCaching off\x1b[0m")
+		queryCache.log.Debug("Caching off")
 	}
 
 	// Setup goroutine for handling the exit signals.
@@ -67,15 +71,17 @@ func Run(config *Config) {
 	// Parse the listener address.
 	udpAddr, err := net.ResolveUDPAddr("udp", config.ListenAddr)
 	if err != nil {
-		mainLog.Fatalln(err)
+		mainLog.Error(fmt.Sprintf("Error listening: %w", err))
+		os.Exit(1)
 	}
 
 	// Setup listening for UDP server.
-	mainLog.Printf("\x1b[34;1mListening on %s (UDP)\x1b[0m\n", udpAddr)
+	mainLog.Info("Adding listener", "host:port", udpAddr)
 	conn, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
-		mainLog.Println(err)
-		mainLog.Fatalln("Did you specify one of your IP addresses?")
+		mainLog.Error(fmt.Sprintf("Error: %w", err))
+		mainLog.Error("Did you specify one of your IP addresses?")
+		os.Exit(1)
 	}
 	defer conn.Close()
 
@@ -87,7 +93,8 @@ func Run(config *Config) {
 	// Load the list of resolvers.
 	resolvers, err := NewResolvers(config.ResolversFile)
 	if err != nil {
-		mainLog.Fatalln(err)
+		mainLog.Error(fmt.Sprintf("Error loading resolvers: %w", err))
+		os.Exit(1)
 	}
 
 	// Load each resolver into the pool.
@@ -105,7 +112,7 @@ func Run(config *Config) {
 
 		// Potential to catch small packets here.
 		if n < DnsHeaderLength {
-			mainLog.Println("Packet length too small")
+			mainLog.Warn("Packet length too small", "length", n)
 			continue
 		}
 
@@ -117,7 +124,7 @@ func Run(config *Config) {
 
 		numRequests.Add(1)
 
-		mainLog.Printf("[stats] Requests: %d\n", numRequests.Load())
+		mainLog.Info("Requests", "requests", numRequests.Load(), "context", "stats")
 
 		// Spin up new goroutine per request.
 		go resolve(pool, request, mainLog)
@@ -125,20 +132,19 @@ func Run(config *Config) {
 }
 
 // resolve handles individual requests.
-func resolve(p *Pool, request *Request, mainLog *log.Logger) {
+func resolve(p *Pool, request *Request, mainLog *slog.Logger) {
 
 	rr, err := NewRR(request.data[DnsHeaderLength:])
 	if err != nil {
-		mainLog.Println("Problem handling RR")
-		mainLog.Println(err)
+		mainLog.Error("Problem handling RR", "error", err)
 		return
 	}
-	mainLog.Printf("Request for host: \x1b[31;1m%s\x1b[0m rtype: \x1b[31;1m%s\x1b[0m\n", rr.hostname, rr.rType)
+	mainLog.Info("New request", "host", rr.hostname, "rtype", rr.rType)
 
 	// Handle blacklisted domains if enabled.
 	// SEE: https://en.wikipedia.org/wiki/DNS_sinkhole
 	if blacklisting && blacklist.Exists(rr.hostname) {
-		blacklist.log.Printf("\x1b[31;1mMatch: %s\x1b[0m\n", rr.hostname)
+		blacklist.log.Info("Blocklist match", "host", rr.hostname)
 		// Reform the query as a response with 0 answers.
 		transIDFlags := append(request.data[:2], []byte{0x81, 0x83}...)
 		newPacket := append(transIDFlags, request.data[len(transIDFlags):]...)
@@ -153,7 +159,7 @@ func resolve(p *Pool, request *Request, mainLog *log.Logger) {
 
 		// Get the cached entry if we have one.
 		if query, ok := queryCache.Get(cacheKey); ok {
-			queryCache.log.Printf("\x1b[32;1mCache hit for host: %s rtype: %s\x1b[0m\n", rr.hostname, rr.rType)
+			queryCache.log.Debug("Cache hit", "host", rr.hostname, "rtype", rr.rType)
 			// TODO: Check that this lock actually works as expected.
 			// Then maybe move the logic into query cache?
 			queryCache.mu.Lock()
@@ -168,12 +174,12 @@ func resolve(p *Pool, request *Request, mainLog *log.Logger) {
 	// Otherwise, send it on.
 	select {
 	case p.requests <- request:
+		p.log.Debug("Request added to pool", "context", "pool")
 	default:
-		p.log.Println("[main] Dropping oldest request")
+		p.log.Debug("Dropping oldest request", "context", "pool")
 		<-p.requests
 		p.requests <- request
 	}
-
 }
 
 // addHostForPort matches if a port that is parsed from resolverAddr matches outboundPort.
@@ -187,13 +193,13 @@ func addHostForPort(resolverAddr string, outboundPort uint) bool {
 }
 
 // cleanup handles the exiting of veil.
-func cleanup(mainLog *log.Logger) {
+func cleanup(mainLog *slog.Logger) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
 	<-c
-	mainLog.Printf("Exiting...\n")
-	mainLog.Printf("[stats] Total requests served: %d\n", numRequests.Load())
+	mainLog.Info("Exiting...")
+	mainLog.Info("[stats] Total requests served", "total", numRequests.Load())
 
 	os.Exit(0)
 }

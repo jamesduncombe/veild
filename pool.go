@@ -1,7 +1,7 @@
 package veild
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"time"
 )
@@ -27,7 +27,7 @@ type Pool struct {
 	workers   chan *Worker
 	reconnect chan *Worker
 	requests  chan *Request
-	log       *log.Logger
+	log       *slog.Logger
 }
 
 // NewPool creates a new connection pool.
@@ -37,7 +37,7 @@ func NewPool() *Pool {
 		workers:   make(chan *Worker, workerQueueSize),
 		reconnect: make(chan *Worker, reconnectionQueueSize),
 		requests:  make(chan *Request, requestQueueSize),
-		log:       log.New(os.Stdout, "[pool] ", log.LstdFlags|log.Lmsgprefix),
+		log:       slog.New(slog.NewTextHandler(os.Stdout, nil)).With("module", "pool"),
 	}
 }
 
@@ -54,7 +54,7 @@ func (p *Pool) NewWorker(host, serverName string) *Worker {
 // Stats prints out connection stats every x seconds.
 func (p *Pool) Stats() {
 	for {
-		p.log.Printf("[stats] Requests: %d, Reconnecting: %d, Workers: %d\n", len(p.requests), len(p.reconnect), len(p.workers))
+		p.log.Info("[stats] Requests: %d, Reconnecting: %d, Workers: %d", len(p.requests), len(p.reconnect), len(p.workers))
 		time.Sleep(statsFrequency)
 	}
 }
@@ -62,7 +62,10 @@ func (p *Pool) Stats() {
 // ConnectionManagement management handles reconnects.
 func (p *Pool) ConnectionManagement() {
 	for reconnect := range p.reconnect {
-		p.log.Printf("Reconnecting %s\n", reconnect.host)
+		p.log.Info("Reconnecting", "host", reconnect.host)
+
+		// Let's see how many are reconnecting and how many workers we have.
+		p.log.Info("Stats...", "reconnecting", len(p.reconnect), "workers", len(p.workers))
 
 		w := p.NewWorker(reconnect.host, reconnect.serverName)
 		p.AddWorker(w)
@@ -84,7 +87,7 @@ func (p *Pool) worker(worker *Worker) {
 	// TODO: Return an error?
 	pconn, err := NewPConn(responseCache, worker)
 	if err != nil {
-		p.log.Printf("Failed to add a new connection to %s\n", worker.host)
+		p.log.Warn("Failed to add a new connection", "host", worker.host)
 		return
 	}
 
@@ -92,7 +95,7 @@ func (p *Pool) worker(worker *Worker) {
 	for {
 		select {
 		case <-pconn.closeCh:
-			p.log.Println("PConn gone")
+			p.log.Info("PConn gone")
 			worker.done <- struct{}{}
 			return
 		case req := <-worker.requests:
@@ -104,14 +107,18 @@ func (p *Pool) worker(worker *Worker) {
 // Dispatch handles dispatching requests to the underlying workers.
 func (p *Pool) Dispatch() {
 	for {
+		p.log.Debug("Waiting for requests...")
 
 		// Pull a request off.
 		request := <-p.requests
 
+		p.log.Debug("Workers in pool", "workers", len(p.workers))
+		p.log.Debug("Requests in pool", "requests", len(p.requests))
+
 		// Pull a worker off.
 		worker := <-p.workers
 
-		p.log.Printf("Worker: %s\n", worker.serverName)
+		p.log.Debug("Worker picked up", "worker", worker.serverName)
 
 		select {
 		case <-worker.done:
@@ -119,13 +126,17 @@ func (p *Pool) Dispatch() {
 			p.reconnect <- worker
 			p.requests <- request
 
-			p.log.Printf("Worker down: %s\n", worker.serverName)
+			p.log.Debug("Worker down", "worker", worker.serverName)
 
 		default:
 			// Else, write the packet to the workers queue.
 			// stick the worker back on the stack.
+			p.log.Debug("Worker still alive, forwarding request", "worker", worker.serverName)
+
 			worker.requests <- request
 			p.workers <- worker
+
+			p.log.Debug("Worker returned to pool", "worker", worker.serverName)
 		}
 
 	}
