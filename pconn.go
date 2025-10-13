@@ -43,7 +43,7 @@ func NewPConn(rc *ResponseCache, worker *Worker, logger *slog.Logger) (*PConn, e
 	var t time.Duration = 1
 
 retry:
-	pc.log.Info("Dialing connection", "port", pc.host)
+	pc.log.Info("Dialing connection", "host", pc.host)
 
 	// Reset duration back to 1 if we've exceeded a reasonable backoff.
 	if t >= 1024 {
@@ -116,7 +116,7 @@ func (pc *PConn) readLoop() {
 			if caching {
 				offsets, err := ttlOffsets(buff)
 				if err != nil {
-					pc.cache.log.Error("Error parsing offsets", "error", fmt.Sprintf("%w", err))
+					pc.cache.log.Warn("Error parsing offsets", "error", fmt.Sprintf("%w", err))
 					continue
 				}
 
@@ -130,7 +130,7 @@ func (pc *PConn) readLoop() {
 			// Write back to client over UDP.
 			_, err = request.clientConn.WriteToUDP(buff, request.clientAddr)
 			if err != nil {
-				pc.log.Error("Error writting back to client", "error", fmt.Sprintf("%w", err), "client_ip", request.clientAddr)
+				pc.log.Warn("Error writting back to client", "error", fmt.Sprintf("%w", err), "client_ip", request.clientAddr)
 				break
 			}
 			pc.log.Debug("Wrote bytes back to client", "bytes", n)
@@ -138,10 +138,7 @@ func (pc *PConn) readLoop() {
 			// Calculate ellapsed time since start of request.
 			elapsed := time.Since(request.start)
 
-			pc.log.Info(fmt.Sprintf("Trans.ID: 0x%x Query time: %v",
-				reqID,
-				elapsed,
-			), "context", "pool")
+			pc.log.Info("Processed request", "trans_id", fmt.Sprintf("0x%x", reqID), "elapsed", elapsed, "context", "pool")
 		}
 	}
 

@@ -80,7 +80,7 @@ func Run(config *Config) {
 	}
 
 	// Setup listening for UDP server.
-	mainLog.Info("Adding listener", "host:port", udpAddr)
+	mainLog.Info("Adding listener", "host", udpAddr)
 	conn, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
 		mainLog.Error(fmt.Sprintf("Error: %w", err))
@@ -144,7 +144,7 @@ func resolve(p *Pool, request *Request, mainLog *slog.Logger) {
 
 	rr, err := NewRR(request.data[DnsHeaderLength:])
 	if err != nil {
-		mainLog.Error("Problem handling RR", "error", err)
+		mainLog.Warn("Problem handling RR", "error", err)
 		return
 	}
 	mainLog.Info("New request", "host", rr.hostname, "rtype", rr.rType)

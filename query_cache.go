@@ -44,7 +44,7 @@ func (qc *QueryCache) Get(key cacheKey) (*Query, bool) {
 		}
 
 		// Remove it, must be too old.
-		qc.log.Info("[get] Removing: 0x%x", key)
+		qc.log.Info("Removing cache entry", "entry", fmt.Sprintf("0x%x", key))
 		delete(qc.queries, key)
 	}
 
@@ -88,12 +88,12 @@ func (qc *QueryCache) reaper() {
 			qc.queries[k] = &Query{query.data, query.offsets, now}
 			continue
 		}
-		qc.log.Info("Removing: 0x%x", k)
+		qc.log.Info("Removing cache entry", "entry", fmt.Sprintf("0x%x", k), "context", "reaper")
 		delete(qc.queries, k)
 	}
 
 	elapsed := time.Since(t)
 	numEntries := len(qc.queries)
 
-	qc.log.Debug("Spent in loop: %v - entries: %d", elapsed, numEntries)
+	qc.log.Debug("Spent in loop", "elapsed", elapsed, "entries", numEntries)
 }
