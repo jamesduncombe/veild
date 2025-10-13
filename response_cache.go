@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 	"sync"
 )
 
@@ -16,10 +15,10 @@ type ResponseCache struct {
 }
 
 // NewResponseCache handles ResponseCache initialization.
-func NewResponseCache() *ResponseCache {
+func NewResponseCache(logger *slog.Logger) *ResponseCache {
 	return &ResponseCache{
 		responses: make(map[cacheKey]*Request),
-		log:       slog.New(slog.NewTextHandler(os.Stdout, nil)).With("module", "response_cache"),
+		log:       logger.With("module", "response_cache"),
 	}
 }
 

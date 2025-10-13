@@ -3,9 +3,7 @@ package veild
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
-
 	"net"
 	"os"
 	"os/signal"
@@ -45,7 +43,7 @@ func Run(config *Config) {
 	// Setup blacklist.
 	if config.BlacklistFile != "" {
 		var err error
-		blacklist, err = NewBlacklist(config.BlacklistFile)
+		blacklist, err = NewBlacklist(config.BlacklistFile, mainLog)
 		blacklist.log.Info("Loading blacklist")
 		if err != nil {
 			mainLog.Error(fmt.Sprintf("Error %w", err))
@@ -58,10 +56,10 @@ func Run(config *Config) {
 	// Setup caching.
 	if config.Caching {
 		caching = true
-		queryCache = NewQueryCache()
+		queryCache = NewQueryCache(mainLog)
 		go queryCache.Reaper()
 	} else {
-		queryCache = NewQueryCache()
+		queryCache = NewQueryCache(mainLog)
 		queryCache.log.Debug("Caching off")
 	}
 
@@ -86,7 +84,7 @@ func Run(config *Config) {
 	defer conn.Close()
 
 	// Create the pooler.
-	pool := NewPool()
+	pool := NewPool(mainLog)
 	go pool.ConnectionManagement()
 	go pool.Dispatch()
 
@@ -183,13 +181,18 @@ func resolve(p *Pool, request *Request, mainLog *slog.Logger) {
 }
 
 // addHostForPort matches if a port that is parsed from resolverAddr matches outboundPort.
-func addHostForPort(resolverAddr string, outboundPort uint) bool {
+func addHostForPort(resolverAddr string, outboundPort uint) (bool, error) {
 	_, rport, err := net.SplitHostPort(resolverAddr)
 	if err != nil {
-		log.Fatalln(err)
+		return false, err
 	}
-	resolverPort, _ := strconv.Atoi(rport)
-	return outboundPort == uint(resolverPort)
+
+	resolverPort, err := strconv.Atoi(rport)
+	if err != nil {
+		return false, err
+	}
+
+	return outboundPort == uint(resolverPort), nil
 }
 
 // cleanup handles the exiting of veil.
@@ -199,7 +202,7 @@ func cleanup(mainLog *slog.Logger) {
 
 	<-c
 	mainLog.Info("Exiting...")
-	mainLog.Info("[stats] Total requests served", "total", numRequests.Load())
+	mainLog.Info("Total requests served", "total", numRequests.Load(), "context", "stats")
 
 	os.Exit(0)
 }

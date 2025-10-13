@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 	"sync"
 	"time"
 )
@@ -17,10 +16,10 @@ type QueryCache struct {
 }
 
 // NewQueryCache handles QueryCache initialization.
-func NewQueryCache() *QueryCache {
+func NewQueryCache(logger *slog.Logger) *QueryCache {
 	return &QueryCache{
 		queries: make(map[cacheKey]*Query),
-		log:     slog.New(slog.NewTextHandler(os.Stdout, nil)).With("module", "query_cache"),
+		log:     logger.With("module", "query_cache"),
 	}
 }
 

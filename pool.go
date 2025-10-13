@@ -2,7 +2,6 @@ package veild
 
 import (
 	"log/slog"
-	"os"
 	"time"
 )
 
@@ -32,12 +31,12 @@ type Pool struct {
 
 // NewPool creates a new connection pool.
 // TODO: Worker channels should probably be scoped to the size of the resolvers?
-func NewPool() *Pool {
+func NewPool(logger *slog.Logger) *Pool {
 	return &Pool{
 		workers:   make(chan *Worker, workerQueueSize),
 		reconnect: make(chan *Worker, reconnectionQueueSize),
 		requests:  make(chan *Request, requestQueueSize),
-		log:       slog.New(slog.NewTextHandler(os.Stdout, nil)).With("module", "pool"),
+		log:       logger.With("module", "pool"),
 	}
 }
 
@@ -81,11 +80,11 @@ func (p *Pool) AddWorker(w *Worker) {
 func (p *Pool) worker(worker *Worker) {
 
 	// Each pconn has it's own ResponseCache.
-	responseCache := NewResponseCache()
+	responseCache := NewResponseCache(p.log)
 
 	// Start a new connection.
 	// TODO: Return an error?
-	pconn, err := NewPConn(responseCache, worker)
+	pconn, err := NewPConn(responseCache, worker, p.log)
 	if err != nil {
 		p.log.Warn("Failed to add a new connection", "host", worker.host)
 		return

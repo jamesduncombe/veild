@@ -16,7 +16,7 @@ type Blacklist struct {
 }
 
 // NewBlacklist creates a new Blacklist from a given hosts file.
-func NewBlacklist(blacklistPath string) (*Blacklist, error) {
+func NewBlacklist(blacklistPath string, logger *slog.Logger) (*Blacklist, error) {
 
 	// Parse and load the blacklist.
 	blacklist, err := parseBlacklist(blacklistPath)
@@ -26,7 +26,7 @@ func NewBlacklist(blacklistPath string) (*Blacklist, error) {
 
 	return &Blacklist{
 		list: blacklist,
-		log:  slog.New(slog.NewTextHandler(os.Stdout, nil)).With("module", "blacklist"),
+		log:  logger.With("module", "blacklist"),
 	}, nil
 }
 

@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log/slog"
-	"os"
 	"sync"
 	"time"
 )
@@ -29,7 +28,7 @@ type PConn struct {
 }
 
 // NewPConn creates a new PConn which is an actual connection to an upstream DNS server.
-func NewPConn(rc *ResponseCache, worker *Worker) (*PConn, error) {
+func NewPConn(rc *ResponseCache, worker *Worker, logger *slog.Logger) (*PConn, error) {
 	pc := &PConn{
 		host:       worker.host,
 		serverName: worker.serverName,
@@ -38,7 +37,7 @@ func NewPConn(rc *ResponseCache, worker *Worker) (*PConn, error) {
 		cache:      rc,
 		start:      time.Now(),
 		lastReq:    time.Now(),
-		log:        slog.New(slog.NewTextHandler(os.Stdout, nil)).With("module", "pconn"),
+		log:        logger.With("module", "pconn"),
 	}
 
 	var t time.Duration = 1
