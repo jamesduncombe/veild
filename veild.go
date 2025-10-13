@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/lmittmann/tint"
 )
 
 // Config represents the command line options.
@@ -34,7 +36,11 @@ var (
 // Run starts up the app.
 func Run(config *Config) {
 
-	mainLog := slog.New(slog.NewTextHandler(os.Stdout, nil)).With("module", "main")
+	mainLog := slog.New(
+		tint.NewHandler(os.Stderr, &tint.Options{
+			Level: slog.LevelDebug,
+		}),
+	)
 
 	mainLog.Info("Starting Veil", "version", config.Version)
 
