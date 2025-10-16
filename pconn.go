@@ -116,7 +116,7 @@ func (pc *PConn) readLoop() {
 			if caching {
 				offsets, err := ttlOffsets(buff)
 				if err != nil {
-					pc.cache.log.Warn("Error parsing offsets", "error", fmt.Sprintf("%w", err))
+					pc.cache.log.Warn("Error parsing offsets", "err", err)
 					continue
 				}
 
@@ -130,7 +130,7 @@ func (pc *PConn) readLoop() {
 			// Write back to client over UDP.
 			_, err = request.clientConn.WriteToUDP(buff, request.clientAddr)
 			if err != nil {
-				pc.log.Warn("Error writting back to client", "error", fmt.Sprintf("%w", err), "client_ip", request.clientAddr)
+				pc.log.Warn("Error writting back to client", "err", err, "client_ip", request.clientAddr)
 				break
 			}
 			pc.log.Debug("Wrote bytes back to client", "bytes", n)

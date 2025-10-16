@@ -44,7 +44,7 @@ func (qc *QueryCache) Get(key cacheKey) (*Query, bool) {
 		}
 
 		// Remove it, must be too old.
-		qc.log.Info("Removing cache entry", "entry", fmt.Sprintf("0x%x", key))
+		qc.log.Info("Removing cache entry", "entry", key)
 		delete(qc.queries, key)
 	}
 

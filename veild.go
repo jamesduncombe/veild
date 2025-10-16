@@ -2,7 +2,6 @@
 package veild
 
 import (
-	"fmt"
 	"log/slog"
 	"net"
 	"os"
@@ -52,7 +51,7 @@ func Run(config *Config) {
 		blacklist, err = NewBlacklist(config.BlacklistFile, mainLog)
 		blacklist.log.Info("Loading blacklist")
 		if err != nil {
-			mainLog.Error(fmt.Sprintf("Error %w", err))
+			mainLog.Error("Error loading blacklist", "err", err)
 			os.Exit(1)
 		}
 		blacklist.log.Info("Loading entries into the blacklist", "entries", len(blacklist.list))
@@ -75,7 +74,7 @@ func Run(config *Config) {
 	// Parse the listener address.
 	udpAddr, err := net.ResolveUDPAddr("udp", config.ListenAddr)
 	if err != nil {
-		mainLog.Error(fmt.Sprintf("Error listening: %w", err))
+		mainLog.Error("Error parsing listener address", "err", err)
 		os.Exit(1)
 	}
 
@@ -83,8 +82,7 @@ func Run(config *Config) {
 	mainLog.Info("Adding listener", "host", udpAddr)
 	conn, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
-		mainLog.Error(fmt.Sprintf("Error: %w", err))
-		mainLog.Error("Did you specify one of your IP addresses?")
+		mainLog.Error("Error listening, did you specify one of your IP addresses?", "err", err)
 		os.Exit(1)
 	}
 	defer conn.Close()
@@ -97,7 +95,7 @@ func Run(config *Config) {
 	// Load the list of resolvers.
 	resolvers, err := NewResolvers(config.ResolversFile)
 	if err != nil {
-		mainLog.Error(fmt.Sprintf("Error loading resolvers: %w", err))
+		mainLog.Error("Error loading resolvers", "err", err)
 		os.Exit(1)
 	}
 
@@ -108,7 +106,7 @@ func Run(config *Config) {
 			w := pool.NewWorker(resolver.Address, resolver.Hostname)
 			pool.AddWorker(w)
 		} else if err != nil {
-			mainLog.Warn("Problem parsing resolver address", "address", resolver.Address, "error", err)
+			mainLog.Warn("Problem parsing resolver address", "address", resolver.Address, "err", err)
 			continue
 		}
 	}
@@ -144,7 +142,7 @@ func resolve(p *Pool, request *Request, mainLog *slog.Logger) {
 
 	rr, err := NewRR(request.data[DnsHeaderLength:])
 	if err != nil {
-		mainLog.Warn("Problem handling RR", "error", err)
+		mainLog.Warn("Problem handling RR", "err", err)
 		return
 	}
 	mainLog.Info("New request", "host", rr.hostname, "rtype", rr.rType)
@@ -167,7 +165,7 @@ func resolve(p *Pool, request *Request, mainLog *slog.Logger) {
 
 		// Get the cached entry if we have one.
 		if query, ok := queryCache.Get(cacheKey); ok {
-			queryCache.log.Debug("Cache hit", "host", rr.hostname, "rtype", rr.rType)
+			queryCache.log.Debug("Cache hit", "key", cacheKey, "host", rr.hostname, "rtype", rr.rType)
 			// TODO: Check that this lock actually works as expected.
 			// Then maybe move the logic into query cache?
 			queryCache.mu.Lock()
