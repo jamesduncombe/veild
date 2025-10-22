@@ -1,6 +1,10 @@
 package veild
 
-import "testing"
+import (
+	"log/slog"
+	"os"
+	"testing"
+)
 
 func newRequest() *Request {
 	return &Request{
@@ -10,8 +14,18 @@ func newRequest() *Request {
 	}
 }
 
+func newLogger() *slog.Logger {
+	return slog.New(
+		slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level: slog.LevelError,
+		}),
+	)
+}
+
 func TestResponseCache_Set(t *testing.T) {
-	responseCache := NewResponseCache()
+	logger := newLogger()
+
+	responseCache := NewResponseCache(logger)
 
 	v := newRequest()
 	responseCache.Set(v)
@@ -22,7 +36,8 @@ func TestResponseCache_Set(t *testing.T) {
 }
 
 func TestResponseCache_Get(t *testing.T) {
-	responseCache := NewResponseCache()
+	logger := newLogger()
+	responseCache := NewResponseCache(logger)
 
 	v := newRequest()
 	responseCache.Set(v)

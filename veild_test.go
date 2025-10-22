@@ -1,8 +1,6 @@
 package veild
 
 import (
-	"log"
-	"os"
 	"testing"
 )
 
@@ -23,8 +21,8 @@ func TestVeild_resolve(t *testing.T) {
 		},
 	}
 
-	logger := log.New(os.Stderr, "", log.LstdFlags)
-	pool := NewPool()
+	logger := newLogger()
+	pool := NewPool(logger)
 
 	resolve(pool, request, logger)
 
@@ -32,7 +30,7 @@ func TestVeild_resolve(t *testing.T) {
 }
 
 func TestVeild_addHostForPort(t *testing.T) {
-	if addHostForPort("9.9.9.9:853", 853) != true {
+	if ok, _ := addHostForPort("9.9.9.9:853", 853); !ok {
 		t.Error("should match a port within the string if it exists")
 	}
 }

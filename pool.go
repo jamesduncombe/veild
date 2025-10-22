@@ -53,7 +53,7 @@ func (p *Pool) NewWorker(host, serverName string) *Worker {
 // Stats prints out connection stats every x seconds.
 func (p *Pool) Stats() {
 	for {
-		p.log.Info("[stats] Requests: %d, Reconnecting: %d, Workers: %d", len(p.requests), len(p.reconnect), len(p.workers))
+		p.log.Info("Stats", "requests", len(p.requests), "reconnections", len(p.reconnect), "workers", len(p.workers))
 		time.Sleep(statsFrequency)
 	}
 }

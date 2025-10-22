@@ -22,7 +22,9 @@ func TestQueryCache_NewQueryCache(t *testing.T) {
 }
 
 func TestQueryCache_Set(t *testing.T) {
-	queryCache := NewQueryCache()
+	logger := newLogger()
+
+	queryCache := NewQueryCache(logger)
 	v := newQuery()
 	queryCache.Set(v)
 
@@ -34,7 +36,9 @@ func TestQueryCache_Set(t *testing.T) {
 }
 
 func TestQueryCache_Get(t *testing.T) {
-	queryCache := NewQueryCache()
+	logger := newLogger()
+
+	queryCache := NewQueryCache(logger)
 	v := newQuery()
 	queryCache.Set(v)
 
@@ -47,7 +51,9 @@ func TestQueryCache_Get(t *testing.T) {
 
 func TestQueryCache_Reaper(t *testing.T) {
 	file, _ := os.ReadFile("fixtures/phishing-detection.api.cx.metamask.io_a.pkt")
-	queryCache := NewQueryCache()
+	logger := newLogger()
+
+	queryCache := NewQueryCache(logger)
 	n := len(file)
 
 	offsets, _ := ttlOffsets(file[:n])
