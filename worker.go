@@ -7,8 +7,8 @@ type Worker struct {
 	done       chan struct{}
 }
 
-// NewWorker adds a new worker to the Pool.
-func (p *Pool) NewWorker(host, serverName string) *Worker {
+// NewWorker creates a new worker.
+func NewWorker(host, serverName string) *Worker {
 	return &Worker{
 		host:       host,
 		serverName: serverName,

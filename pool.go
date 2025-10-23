@@ -48,13 +48,13 @@ func (p *Pool) ConnectionManagement() {
 		// Let's see how many are reconnecting and how many workers we have.
 		p.log.Info("Stats", "requests", len(p.requests), "reconnecting", len(p.reconnect), "workers", len(p.workers))
 
-		w := p.NewWorker(reconnect.host, reconnect.serverName)
+		w := NewWorker(reconnect.host, reconnect.serverName)
 		p.AddWorker(w)
 	}
 }
 
+// AddWorker adds a new worker to the pool.
 func (p *Pool) AddWorker(w *Worker) {
-	p.workers <- w
 	go p.worker(w)
 }
 
@@ -71,6 +71,9 @@ func (p *Pool) worker(worker *Worker) {
 		p.log.Warn("Failed to add a new connection", "host", worker.host)
 		return
 	}
+
+	// Put the worker into the pool.
+	p.workers <- worker
 
 	// Enter the loop for the worker.
 	for {
@@ -114,12 +117,12 @@ func (p *Pool) Dispatch() {
 			p.log.Debug("Worker down", "worker", worker.serverName)
 
 		default:
-			// Else, write the packet to the workers queue.
-			// stick the worker back on the stack.
+			// Else, put the worker back into the pool and
+			// stick the request back on the requests queue.
 			p.log.Debug("Worker still alive, forwarding request", "worker", worker.serverName)
 
-			p.requests <- request
 			p.workers <- worker
+			p.requests <- request
 
 			p.log.Debug("Worker returned to pool", "worker", worker.serverName)
 		}

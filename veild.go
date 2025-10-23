@@ -103,7 +103,7 @@ func Run(config *Config) {
 	for _, resolver := range resolvers.Resolvers {
 		if ok, err := addHostForPort(resolver.Address, config.OutboundPort); ok {
 
-			w := pool.NewWorker(resolver.Address, resolver.Hostname)
+			w := NewWorker(resolver.Address, resolver.Hostname)
 			pool.AddWorker(w)
 		} else if err != nil {
 			mainLog.Warn("Problem parsing resolver address", "address", resolver.Address, "err", err)
