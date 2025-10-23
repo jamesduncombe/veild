@@ -75,7 +75,9 @@ func (pc *PConn) dialConn() (*tls.Conn, error) {
 	})
 }
 
-// readLoop continually tries to read responses from upstream DNS server.
+// readLoop takes responses from the upstream DNS server.
+// if the response matching a request that we've made, we write
+// it back to the client.
 func (pc *PConn) readLoop() {
 
 	defer func() {
@@ -94,24 +96,22 @@ func (pc *PConn) readLoop() {
 		buff := make([]byte, ResponsePacketLength)
 		n, err := pc.conn.Read(buff)
 
-		// On any error exit.
-		// TODO: Probably should at least wrap this error.
 		if err != nil {
-			pc.log.Info("Connection gone away", "host", pc.host)
+			pc.log.Info("Connection gone away", "host", pc.host, "err", err)
 			return
 		}
 
-		// Discard first 2 bytes (packet length) and truncate to length of received bytes.
+		// Discard first 2 bytes (packet length) and truncate to length of received bytes
+		// as we're returning this over UDP to the client.
 		// SEE: https://datatracker.ietf.org/doc/html/rfc1035#section-4.2.2
 		buff = buff[2:n]
 
-		rawRequestId := buff[:2]
-		key := createCacheKey(rawRequestId)
-		reqID := binary.BigEndian.Uint16(rawRequestId)
+		trxID := buff[:2]
+		key := createCacheKey(trxID)
 
 		if request, ok := pc.cache.Get(key); ok {
 
-			pc.cache.log.Info(fmt.Sprintf("Match for 0x%x", reqID))
+			pc.cache.log.Info("Match request cache", "trx_id", fmt.Sprintf("0x%x", trxID))
 
 			if caching {
 				offsets, err := ttlOffsets(buff)
@@ -138,7 +138,10 @@ func (pc *PConn) readLoop() {
 			// Calculate ellapsed time since start of request.
 			elapsed := time.Since(request.start)
 
-			pc.log.Info("Processed request", "trans_id", fmt.Sprintf("0x%x", reqID), "elapsed", elapsed, "context", "pool")
+			pc.log.Info("Processed request", "trx_id", fmt.Sprintf("0x%x", trxID), "elapsed", elapsed, "context", "pool")
+
+		} else {
+			pc.log.Warn("No matching request in cache", "trx_id", fmt.Sprintf("0x%x", trxID))
 		}
 	}
 
@@ -153,7 +156,7 @@ func (pc *PConn) writeLoop() {
 
 			pc.log.Debug("Writing request to upstream", "host", pc.host)
 
-			// Overwrite time of last request.
+			// Update time of last request.
 			pc.mu.Lock()
 			pc.lastReq = time.Now()
 			pc.mu.Unlock()

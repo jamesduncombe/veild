@@ -53,7 +53,7 @@ func (p *Pool) NewWorker(host, serverName string) *Worker {
 // Stats prints out connection stats every x seconds.
 func (p *Pool) Stats() {
 	for {
-		p.log.Info("Stats", "requests", len(p.requests), "reconnections", len(p.reconnect), "workers", len(p.workers))
+		p.log.Info("Stats", "requests", len(p.requests), "reconnecting", len(p.reconnect), "workers", len(p.workers))
 		time.Sleep(statsFrequency)
 	}
 }
@@ -64,7 +64,7 @@ func (p *Pool) ConnectionManagement() {
 		p.log.Info("Reconnecting", "host", reconnect.host)
 
 		// Let's see how many are reconnecting and how many workers we have.
-		p.log.Info("Stats...", "reconnecting", len(p.reconnect), "workers", len(p.workers))
+		p.log.Info("Stats", "requests", len(p.requests), "reconnecting", len(p.reconnect), "workers", len(p.workers))
 
 		w := p.NewWorker(reconnect.host, reconnect.serverName)
 		p.AddWorker(w)
@@ -98,6 +98,11 @@ func (p *Pool) worker(worker *Worker) {
 			worker.done <- struct{}{}
 			return
 		case req := <-worker.requests:
+			p.log.Debug("Pulled request from worker, pushing to writeCh",
+				"host",
+				pconn.host,
+				"pconn_requests",
+				len(pconn.writeCh))
 			pconn.writeCh <- req
 		}
 	}
