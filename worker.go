@@ -4,7 +4,6 @@ package veild
 type Worker struct {
 	host       string
 	serverName string
-	requests   chan *Request
 	done       chan struct{}
 }
 
@@ -13,7 +12,6 @@ func (p *Pool) NewWorker(host, serverName string) *Worker {
 	return &Worker{
 		host:       host,
 		serverName: serverName,
-		requests:   make(chan *Request),
 		done:       make(chan struct{}),
 	}
 }

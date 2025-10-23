@@ -79,7 +79,7 @@ func (p *Pool) worker(worker *Worker) {
 			p.log.Info("PConn gone")
 			worker.done <- struct{}{}
 			return
-		case req := <-worker.requests:
+		case req := <-p.requests:
 			p.log.Debug("Pulled request from worker, pushing to writeCh",
 				"host",
 				pconn.host,
@@ -119,7 +119,7 @@ func (p *Pool) Dispatch() {
 			// stick the worker back on the stack.
 			p.log.Debug("Worker still alive, forwarding request", "worker", worker.serverName)
 
-			worker.requests <- request
+			p.requests <- request
 			p.workers <- worker
 
 			p.log.Debug("Worker returned to pool", "worker", worker.serverName)
