@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log/slog"
+	"net"
 	"sync"
 	"time"
 )
@@ -69,7 +70,11 @@ retry:
 
 // dialConn handles dialing the outbound connection to the underlying DNS server.
 func (pc *PConn) dialConn() (*tls.Conn, error) {
-	return tls.Dial("tcp", pc.host, &tls.Config{
+	dialer := &net.Dialer{
+		Timeout: 5 * time.Second,
+	}
+
+	return tls.DialWithDialer(dialer, "tcp", pc.host, &tls.Config{
 		ServerName: pc.serverName,
 		MinVersion: tls.VersionTLS13,
 	})
