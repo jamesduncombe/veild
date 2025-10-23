@@ -52,8 +52,9 @@ retry:
 	}
 
 	conn, err := pc.dialConn()
+	pc.log.Debug("Dial complete", "host", pc.host)
 	if err != nil {
-		pc.log.Warn("Failed to connect", "host", pc.host, "reconnecting_in", t)
+		pc.log.Warn("Failed to connect", "host", pc.host, "reconnecting_in", t*time.Second)
 		// Back off for t seconds (exponential backoff).
 		time.Sleep(t * time.Second)
 		t = t << 1
@@ -96,7 +97,7 @@ func (pc *PConn) readLoop() {
 	}()
 
 	for {
-		pc.log.Debug("Read loop", "host", pc.host)
+		pc.log.Debug("Reading from upstream DNS server...", "host", pc.host)
 
 		buff := make([]byte, ResponsePacketLength)
 		n, err := pc.conn.Read(buff)
@@ -135,7 +136,7 @@ func (pc *PConn) readLoop() {
 			// Write back to client over UDP.
 			_, err = request.clientConn.WriteToUDP(buff, request.clientAddr)
 			if err != nil {
-				pc.log.Warn("Error writting back to client", "err", err, "client_ip", request.clientAddr)
+				pc.log.Warn("Error writing back to client", "err", err, "client_ip", request.clientAddr)
 				break
 			}
 			pc.log.Debug("Wrote bytes back to client", "bytes", n)
@@ -155,11 +156,9 @@ func (pc *PConn) readLoop() {
 // writeLoop takes DNS requests and forwards them to the upstream DNS server.
 func (pc *PConn) writeLoop() {
 	for {
-		pc.log.Debug("Write loop", "host", pc.host)
+		pc.log.Debug("Waiting on incoming requests...", "host", pc.host)
 		select {
 		case request := <-pc.writeCh:
-
-			pc.log.Debug("Writing request to upstream", "host", pc.host)
 
 			// Update time of last request.
 			pc.mu.Lock()
@@ -171,6 +170,8 @@ func (pc *PConn) writeLoop() {
 			// SEE: https://datatracker.ietf.org/doc/html/rfc1035#section-4.2.2
 			packetLength := make([]byte, 2)
 			binary.BigEndian.PutUint16(packetLength, uint16(len(request.data)))
+
+			pc.log.Debug("Writing request to upstream DNS server", "host", pc.host)
 
 			// Prepend packet length.
 			pc.conn.Write(append(packetLength, request.data...))

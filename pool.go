@@ -80,7 +80,7 @@ func (p *Pool) worker(worker *Worker) {
 			worker.done <- struct{}{}
 			return
 		case req := <-p.requests:
-			p.log.Debug("Pulled request from worker, pushing to writeCh",
+			p.log.Debug("Pulled request from worker, pushing to upstream",
 				"host",
 				pconn.host,
 				"pconn_requests",
@@ -93,13 +93,12 @@ func (p *Pool) worker(worker *Worker) {
 // Dispatch handles dispatching requests to the underlying workers.
 func (p *Pool) Dispatch() {
 	for {
-		p.log.Debug("Waiting for requests...")
+		p.log.Debug("Waiting for outgoing requests...")
 
 		// Pull a request off.
 		request := <-p.requests
 
-		p.log.Debug("Workers in pool", "workers", len(p.workers))
-		p.log.Debug("Requests in pool", "requests", len(p.requests))
+		p.log.Debug("Workers and requests in pool", "workers", len(p.workers), "requests", len(p.requests))
 
 		// Pull a worker off.
 		worker := <-p.workers
