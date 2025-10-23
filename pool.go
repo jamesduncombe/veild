@@ -13,14 +13,6 @@ const (
 
 const statsFrequency = 10 * time.Second
 
-// Worker represents a worker in the pool.
-type Worker struct {
-	host       string
-	serverName string
-	requests   chan *Request
-	done       chan struct{}
-}
-
 // Pool represents a new connection pool.
 type Pool struct {
 	workers   chan *Worker
@@ -37,16 +29,6 @@ func NewPool(logger *slog.Logger) *Pool {
 		reconnect: make(chan *Worker, reconnectionQueueSize),
 		requests:  make(chan *Request, requestQueueSize),
 		log:       logger.With("module", "pool"),
-	}
-}
-
-// NewWorker adds a new worker to the Pool.
-func (p *Pool) NewWorker(host, serverName string) *Worker {
-	return &Worker{
-		host:       host,
-		serverName: serverName,
-		requests:   make(chan *Request),
-		done:       make(chan struct{}),
 	}
 }
 
