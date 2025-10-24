@@ -28,9 +28,3 @@ func TestVeild_resolve(t *testing.T) {
 
 	<-pool.requests
 }
-
-func TestVeild_addHostForPort(t *testing.T) {
-	if ok, _ := addHostForPort("9.9.9.9:853", 853); !ok {
-		t.Error("should match a port within the string if it exists")
-	}
-}

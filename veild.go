@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strconv"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -19,7 +18,6 @@ type Config struct {
 	Version       string
 	ListenAddr    string
 	Caching       bool
-	OutboundPort  uint
 	BlacklistFile string
 	ResolversFile string
 }
@@ -42,8 +40,6 @@ func Run(config *Config) {
 	)
 
 	mainLog.Info("Starting Veil", "version", config.Version)
-
-	mainLog.Debug("Setting outbound port", "outbound", config.OutboundPort)
 
 	// Setup blacklist.
 	if config.BlacklistFile != "" {
@@ -101,14 +97,8 @@ func Run(config *Config) {
 
 	// Load each resolver into the pool.
 	for _, resolver := range resolvers.Resolvers {
-		if ok, err := addHostForPort(resolver.Address, config.OutboundPort); ok {
-
-			w := NewWorker(resolver.Address, resolver.Hostname)
-			pool.AddWorker(w)
-		} else if err != nil {
-			mainLog.Warn("Problem parsing resolver address", "address", resolver.Address, "err", err)
-			continue
-		}
+		w := NewWorker(resolver.Address, resolver.Hostname)
+		pool.AddWorker(w)
 	}
 
 	// Enter the listening loop.
@@ -186,21 +176,6 @@ func resolve(p *Pool, request *Request, mainLog *slog.Logger) {
 		<-p.requests
 		p.requests <- request
 	}
-}
-
-// addHostForPort matches if a port that is parsed from resolverAddr matches outboundPort.
-func addHostForPort(resolverAddr string, outboundPort uint) (bool, error) {
-	_, rport, err := net.SplitHostPort(resolverAddr)
-	if err != nil {
-		return false, err
-	}
-
-	resolverPort, err := strconv.Atoi(rport)
-	if err != nil {
-		return false, err
-	}
-
-	return outboundPort == uint(resolverPort), nil
 }
 
 // cleanup handles the exiting of veil.

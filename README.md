@@ -56,18 +56,11 @@ When your OS is set to use veild you should start to see some activity in the co
 
 The `resolvers.yml` file which you'll see in the archive also gives you the ability to enable/disable DNS resolvers as needed. I've added comments in there which should explain things.
 
-### Outbound port
-
-You can specify an outbound port (instead of the default `853` DNS-over-TLS port) by using the `-p` flag when starting veild.
-
-Using the `-p` flag filters down the resolvers in the `resolvers.yml` file to the specified port.
-
 ### Blacklists
 
 Blacklist support is also available to block ad domains etc. For that you'll need to head to [Steven Black's repo](https://github.com/StevenBlack/hosts) where you can find multiple blacklists available for download.
 
 Veild is happy working with the hosts file format, so, once you have a blacklist downloaded, simply add: `-b blacklist.txt` to the end of the command above.
-
 
 I think that just about covers things... for a full set of the arguments that you can pass to veild run: `./veild --help`
 
