@@ -6,17 +6,24 @@ jobs:
   test:
 
     name: Test
+
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
     strategy:
       matrix:
-        go-version: [ '1.24' ]
+        go-version: [ '1.24', '1.25' ]
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
 
       - name: Setup Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6
         with:
           go-version: ${{ matrix.go-version }}
 
@@ -29,20 +36,28 @@ jobs:
   build:
 
     name: Build and Test
+
     needs: test
+
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
     strategy:
       matrix:
-        go-version: [ '1.24' ]
+        go-version: [ '1.24', '1.25' ]
         # For cross compilation...
         architecture: [ 'linux-arm', 'linux-arm64', 'linux-amd64', 'darwin-amd64', 'darwin-arm64' ]
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
 
       - name: Setup Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6
         with:
           go-version: ${{ matrix.go-version }}
 
