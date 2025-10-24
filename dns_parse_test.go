@@ -47,7 +47,7 @@ func Test_sliceNameType(t *testing.T) {
 	failureCase := []byte{0x01}
 
 	_, err := sliceNameType(failureCase)
-	if err != ErrInvalidDnsPacket {
+	if err != ErrInvalidDNSPacket {
 		t.Errorf("expected error %v", err)
 	}
 

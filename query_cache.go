@@ -57,7 +57,7 @@ func (qc *QueryCache) Entries(f io.Writer) {
 	defer qc.mu.Unlock()
 
 	for _, query := range qc.queries {
-		rr, _ := NewRR(query.data[DnsHeaderLength:])
+		rr, _ := NewRR(query.data[DNSHeaderLength:])
 		ttls := query.getTTLs()
 		fmt.Fprintf(f, "%s, %s, %+v\n", rr.hostname, rr.rType, ttls)
 	}

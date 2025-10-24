@@ -42,7 +42,7 @@ func (rc *ResponseCache) Get(key cacheKey) (*Request, bool) {
 	return &Request{}, false
 }
 
-// Check if an entry exists in the cache.
+// Exists checks if an entry exists in the cache.
 func (rc *ResponseCache) Exists(key cacheKey) bool {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
@@ -57,7 +57,7 @@ func (rc *ResponseCache) Entries(f io.Writer) {
 	defer rc.mu.Unlock()
 
 	for _, response := range rc.responses {
-		rr, _ := NewRR(response.data[DnsHeaderLength:])
+		rr, _ := NewRR(response.data[DNSHeaderLength:])
 
 		fmt.Fprintf(f, "%s, %s\n", rr.hostname, rr.rType)
 	}

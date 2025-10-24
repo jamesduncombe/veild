@@ -113,11 +113,11 @@ func Run(config *Config) {
 
 	// Enter the listening loop.
 	for {
-		buff := make([]byte, DnsPacketLength)
+		buff := make([]byte, DNSPacketLength)
 		n, clientAddr, _ := conn.ReadFromUDP(buff)
 
 		// Potential to catch small packets here.
-		if n < DnsHeaderLength {
+		if n < DNSHeaderLength {
 			mainLog.Warn("Packet length too small", "length", n)
 			continue
 		}
@@ -140,7 +140,7 @@ func Run(config *Config) {
 // resolve handles individual requests.
 func resolve(p *Pool, request *Request, mainLog *slog.Logger) {
 
-	rr, err := NewRR(request.data[DnsHeaderLength:])
+	rr, err := NewRR(request.data[DNSHeaderLength:])
 	if err != nil {
 		mainLog.Warn("Problem handling RR", "err", err)
 		return

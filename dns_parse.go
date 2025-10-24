@@ -8,11 +8,11 @@ import (
 )
 
 const (
-	// DnsPacketLength is the maximum allowed packet length for a DNS packet.
-	DnsPacketLength int = 512
+	// DNSPacketLength is the maximum allowed packet length for a DNS packet.
+	DNSPacketLength int = 512
 
-	// DnsHeaderLength is the length of a normal DNS request/response header (in bytes).
-	DnsHeaderLength int = 12
+	// DNSHeaderLength is the length of a normal DNS request/response header (in bytes).
+	DNSHeaderLength int = 12
 )
 
 // RR represents a domain name and resource type.
@@ -43,8 +43,8 @@ var ResourceTypes = map[uint16]string{
 
 // Errors in the DNS parse phase.
 var (
-	// ErrInvalidDnsPacket is returned when the packet doesn't look like a DNS packet.
-	ErrInvalidDnsPacket = errors.New("invalid dns packet")
+	// ErrInvalidDNSPacket is returned when the packet doesn't look like a DNS packet.
+	ErrInvalidDNSPacket = errors.New("invalid dns packet")
 
 	// ErrInvalidRType is returned when a mapping cannot be found between
 	// the numeric representation of an RR type and it's string.
@@ -107,7 +107,7 @@ func sliceNameType(packet []byte) ([]byte, error) {
 		return packet[:i+3], nil
 	}
 
-	return []byte{}, ErrInvalidDnsPacket
+	return []byte{}, ErrInvalidDNSPacket
 }
 
 // ttlOffsets scans a DNS record and returns offsets of all the TTLs within it.
@@ -124,7 +124,7 @@ func ttlOffsets(data []byte) ([]int, error) {
 	totalResourceRecords := int(answers + authority)
 
 	// Skip first 12 bytes (always the header, no TTLs).
-	offset := DnsHeaderLength
+	offset := DNSHeaderLength
 
 	// Attempting to jump over Questions section.
 
