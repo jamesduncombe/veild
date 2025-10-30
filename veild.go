@@ -83,17 +83,17 @@ func Run(config *Config) {
 	}
 	defer conn.Close()
 
-	// Create the pooler.
-	pool := NewPool(mainLog)
-	go pool.ConnectionManagement()
-	go pool.Dispatch()
-
 	// Load the list of resolvers.
 	resolvers, err := NewResolvers(config.ResolversFile)
 	if err != nil {
 		mainLog.Error("Error loading resolvers", "err", err)
 		os.Exit(1)
 	}
+
+	// Create the pooler.
+	pool := NewPool(mainLog, len(resolvers.Resolvers))
+	go pool.ConnectionManagement()
+	go pool.Dispatch()
 
 	// Load each resolver into the pool.
 	for _, resolver := range resolvers.Resolvers {

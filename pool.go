@@ -6,9 +6,8 @@ import (
 )
 
 const (
-	workerQueueSize       = 10
 	reconnectionQueueSize = 10
-	requestQueueSize      = 10
+	requestQueueSize      = 100
 )
 
 const statsFrequency = 10 * time.Second
@@ -22,8 +21,7 @@ type Pool struct {
 }
 
 // NewPool creates a new connection pool.
-// TODO: Worker channels should probably be scoped to the size of the resolvers?
-func NewPool(logger *slog.Logger) *Pool {
+func NewPool(logger *slog.Logger, workerQueueSize int) *Pool {
 	return &Pool{
 		workers:   make(chan *Worker, workerQueueSize),
 		reconnect: make(chan *Worker, reconnectionQueueSize),

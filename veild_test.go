@@ -21,8 +21,9 @@ func TestVeild_resolve(t *testing.T) {
 		},
 	}
 
+	numResolvers := 2
 	logger := newLogger()
-	pool := NewPool(logger)
+	pool := NewPool(logger, numResolvers)
 
 	resolve(pool, request, logger)
 
