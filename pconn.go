@@ -91,7 +91,7 @@ func (pc *PConn) readLoop() {
 		pc.mu.Lock()
 		defer pc.mu.Unlock()
 
-		pc.log.Info("Closing connection", "host", pc.host, "last_request", time.Since(pc.lastReq), "lasted", time.Since(pc.start))
+		pc.log.Info("Closing connection from read side", "host", pc.host, "last_request", time.Since(pc.lastReq), "lasted", time.Since(pc.start))
 		pc.conn.Close()
 		close(pc.closeCh)
 	}()
@@ -155,6 +155,16 @@ func (pc *PConn) readLoop() {
 
 // writeLoop takes DNS requests and forwards them to the upstream DNS server.
 func (pc *PConn) writeLoop() {
+
+	defer func() {
+		// Lock needed due to accessing times.
+		pc.mu.Lock()
+		defer pc.mu.Unlock()
+
+		pc.log.Info("Closing connection from write side", "host", pc.host, "last_request", time.Since(pc.lastReq), "lasted", time.Since(pc.start))
+		pc.conn.Close()
+	}()
+
 	for {
 		pc.log.Debug("Waiting on incoming requests...", "host", pc.host)
 		select {
@@ -173,16 +183,19 @@ func (pc *PConn) writeLoop() {
 
 			pc.log.Debug("Writing request to upstream DNS server", "host", pc.host)
 
-			// Prepend packet length.
-			pc.conn.Write(append(packetLength, request.data...))
+			// Prepend packet length as this is over TCP.
+			n, err := pc.conn.Write(append(packetLength, request.data...))
+			if err != nil {
+				pc.log.Warn("Error passing request to upstream", "host", pc.host, "err", err)
+				return
+			}
+			pc.log.Debug("Wrote bytes to server", "host", pc.host, "bytes", n)
 
 			// Add to cache.
 			pc.cache.Set(request)
 
 		case <-pc.closeCh:
 			pc.log.Debug("Connection closed", "host", pc.host)
-
-			pc.conn.Close()
 			return
 		}
 	}
