@@ -66,7 +66,7 @@ func (p *Pool) worker(worker *Worker) {
 	// TODO: Return an error?
 	pconn, err := NewPConn(responseCache, worker, p.log)
 	if err != nil {
-		p.log.Warn("Failed to add a new connection", "host", worker.host)
+		p.log.Warn("Failed to add a new connection", "host", worker.host, "err", err)
 		return
 	}
 
@@ -82,10 +82,7 @@ func (p *Pool) worker(worker *Worker) {
 			return
 		case req := <-p.requests:
 			p.log.Debug("Pulled request from worker, pushing to upstream",
-				"host",
-				pconn.host,
-				"pconn_requests",
-				len(pconn.writeCh))
+				"host", pconn.host, "pconn_requests", len(pconn.writeCh))
 			pconn.writeCh <- req
 		}
 	}

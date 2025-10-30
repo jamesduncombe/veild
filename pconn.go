@@ -180,9 +180,9 @@ func (pc *PConn) writeLoop() {
 			pc.cache.Set(request)
 
 		case <-pc.closeCh:
-			pc.log.Debug("Connection closed, closing writeCh", "host", pc.host)
+			pc.log.Debug("Connection closed", "host", pc.host)
 
-			close(pc.writeCh)
+			pc.conn.Close()
 			return
 		}
 	}
