@@ -1,6 +1,7 @@
 package veild
 
 import (
+	"bytes"
 	"os"
 	"testing"
 	"time"
@@ -46,6 +47,26 @@ func TestQueryCache_Get(t *testing.T) {
 
 	if _, ok := queryCache.Get(v.cacheKey()); !ok {
 		t.Errorf("expected set and fetch to return query")
+	}
+}
+
+func TestQueryCache_Entries(t *testing.T) {
+	file, _ := os.ReadFile("fixtures/phishing-detection.api.cx.metamask.io_a.pkt")
+	logger := newLogger()
+
+	queryCache := NewQueryCache(logger)
+	n := len(file)
+
+	offsets, _ := ttlOffsets(file[:n])
+	queryCache.Set(&Query{file[:n], offsets, time.Now()})
+
+	var b bytes.Buffer
+	queryCache.Entries(&b)
+
+	want := "phishing-detection.api.cx.metamask.io, A, [56 582 15 14 14 40 32]\n"
+	got := b.String()
+	if got != want {
+		t.Errorf("expected entries to output cache contents, got %q, want %q", got, want)
 	}
 }
 
