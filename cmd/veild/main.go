@@ -20,12 +20,20 @@ var (
 	version       bool
 )
 
-// usage handles the default usage instructions for the cmd.
-func usage() {
-	fmt.Println(veilVersion)
-	fmt.Printf("\nUsage:\n\n")
-	flag.PrintDefaults()
-	fmt.Println()
+// NewConfig builds a new config from the command line flags.
+func NewConfig(
+	listenAddr string,
+	noCaching bool,
+	blacklistFile string,
+	resolversFile string,
+) *veild.Config {
+	return &veild.Config{
+		ListenAddr:    listenAddr,
+		Caching:       noCaching,
+		BlacklistFile: blacklistFile,
+		ResolversFile: resolversFile,
+		Version:       veilVersion,
+	}
 }
 
 func main() {
@@ -46,15 +54,17 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Sort out the config.
-	config := &veild.Config{
-		ListenAddr:    listenAddr,
-		Caching:       !noCaching,
-		BlacklistFile: blacklistFile,
-		ResolversFile: resolversFile,
-		Version:       veilVersion,
-	}
+	// Build the config.
+	config := NewConfig(listenAddr, !noCaching, blacklistFile, resolversFile)
 
 	// Start Veil.
 	veild.Run(config)
+}
+
+// usage handles the default usage instructions for the cmd.
+func usage() {
+	fmt.Println(veilVersion)
+	fmt.Printf("\nUsage:\n\n")
+	flag.PrintDefaults()
+	fmt.Println()
 }
