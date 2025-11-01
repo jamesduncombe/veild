@@ -96,7 +96,7 @@ func Run(config *Config) {
 
 	// Load each resolver into the pool.
 	for _, resolver := range resolvers.Resolvers {
-		pool.AddResolver(resolver)
+		pool.AddResolver(resolver, TLSResolverDialer{})
 	}
 
 	// Enter the listening loop.

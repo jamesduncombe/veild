@@ -46,24 +46,25 @@ func (p *Pool) ConnectionManagement() {
 		// Let's see how many are reconnecting and how many workers we have.
 		p.log.Info("Stats", "requests", len(p.requests), "reconnecting", len(p.reconnect), "workers", len(p.resolvers))
 
-		p.AddResolver(resolver.resolver)
+		rd := TLSResolverDialer{}
+		p.AddResolver(resolver.resolver, rd)
 	}
 }
 
 // AddResolver adds a new worker to the pool.
-func (p *Pool) AddResolver(resolver ResolverEntry) {
-	go p.worker(resolver)
+func (p *Pool) AddResolver(resolver ResolverEntry, rd ResolverDialer) {
+	go p.worker(resolver, rd)
 }
 
 // worker creates a new underlying connection and assigns it a ResponseCache.
-func (p *Pool) worker(re ResolverEntry) {
+func (p *Pool) worker(re ResolverEntry, rd ResolverDialer) {
 
 	// Each resolver has it's own ResponseCache.
 	responseCache := NewResponseCache(p.log)
 
 	// Start a new connection.
 	// TODO: Return an error?
-	resolver, err := NewResolver(responseCache, re, p.log)
+	resolver, err := NewResolver(responseCache, re, rd, p.log)
 	if err != nil {
 		p.log.Warn("Failed to add a new connection", "host", re.Address, "err", err)
 		return

@@ -1,12 +1,10 @@
 package veild
 
 import (
-	"crypto/tls"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"sync"
 	"time"
 )
@@ -29,8 +27,12 @@ type Resolver struct {
 	lastReq time.Time
 }
 
+type ResolverDialer interface {
+	DialConn(ResolverEntry) (io.ReadWriteCloser, error)
+}
+
 // NewResolver creates a new Resolver which is an actual connection to an upstream DNS server.
-func NewResolver(rc *ResponseCache, re ResolverEntry, logger *slog.Logger) (*Resolver, error) {
+func NewResolver(rc *ResponseCache, re ResolverEntry, rd ResolverDialer, logger *slog.Logger) (*Resolver, error) {
 	rs := &Resolver{
 		resolver: re,
 		writeCh:  make(chan *Request, 1),
@@ -52,7 +54,7 @@ retry:
 		t = 1
 	}
 
-	conn, err := rs.dialConn()
+	conn, err := rd.DialConn(re)
 	rs.log.Debug("Dial complete", "host", rs.resolver.Address)
 	if err != nil {
 		rs.log.Warn("Failed to connect", "host", rs.resolver.Address, "reconnecting_in", t*time.Second)
@@ -68,18 +70,6 @@ retry:
 	go rs.readLoop()
 	go rs.writeLoop()
 	return rs, nil
-}
-
-// dialConn handles dialing the outbound connection to the underlying DNS server.
-func (rs *Resolver) dialConn() (io.ReadWriteCloser, error) {
-	dialer := &net.Dialer{
-		Timeout: 5 * time.Second,
-	}
-
-	return tls.DialWithDialer(dialer, "tcp", rs.resolver.Address, &tls.Config{
-		ServerName: rs.resolver.Hostname,
-		MinVersion: tls.VersionTLS13,
-	})
 }
 
 // readLoop takes responses from the upstream DNS server.

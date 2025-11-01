@@ -16,7 +16,8 @@ func TestResolver_NewResolver(t *testing.T) {
 	queryCache = NewQueryCache(logger)
 	rc := NewResponseCache(logger)
 	re := ResolverEntry{Hostname: "dns.quad9.net", Address: "9.9.9.9:853"}
-	rs, err := NewResolver(rc, re, logger)
+	rd := TLSResolverDialer{}
+	rs, err := NewResolver(rc, re, rd, logger)
 
 	if err != nil {
 		t.Errorf("got error when creating resolver %v", err)
