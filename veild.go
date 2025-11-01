@@ -60,8 +60,7 @@ func Run(config *Config) {
 		queryCache = NewQueryCache(mainLog)
 		go queryCache.Reaper()
 	} else {
-		queryCache = NewQueryCache(mainLog)
-		queryCache.log.Debug("Caching off")
+		mainLog.Debug("Caching off")
 	}
 
 	// Setup goroutine for handling the exit signals.
