@@ -8,18 +8,18 @@ import (
 	"time"
 )
 
-func TestPConn_NewPConn(t *testing.T) {
+func TestResolver_NewResolver(t *testing.T) {
 
-	// Setup pconn.
+	// Setup.
 	logger := newLogger()
 	// TODO: We're using a global query cache which isn't right.
 	queryCache = NewQueryCache(logger)
 	rc := NewResponseCache(logger)
-	worker := NewWorker("9.9.9.9:853", "dns.quad9.net")
-	pc, err := NewPConn(rc, worker, logger)
+	re := ResolverEntry{Hostname: "dns.quad9.net", Address: "9.9.9.9:853"}
+	rs, err := NewResolver(rc, re, logger)
 
 	if err != nil {
-		t.Errorf("got error when creating pconn %v", err)
+		t.Errorf("got error when creating resolver %v", err)
 	}
 
 	// Turn caching on.
@@ -36,7 +36,7 @@ func TestPConn_NewPConn(t *testing.T) {
 	}
 
 	// Build a request and send it.
-	pc.writeCh <- &Request{
+	rs.writeCh <- &Request{
 		data:       rawPacket,
 		clientConn: clientConn,
 		clientAddr: clientAddr,
@@ -54,7 +54,7 @@ func TestPConn_NewPConn(t *testing.T) {
 	t.Log(b[:n])
 
 	// Teardown the connection etc.
-	pc.conn.Close()
+	rs.conn.Close()
 	clientConn.Close()
 }
 

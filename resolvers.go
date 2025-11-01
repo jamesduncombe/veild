@@ -16,8 +16,8 @@ resolvers:
     hostname: "all.dns.mullvad.net"
 `
 
-// Resolver implements a resolver.
-type Resolver struct {
+// ResolverEntry implements a resolver.
+type ResolverEntry struct {
 	Address  string
 	Hostname string
 	Hash     string
@@ -26,7 +26,7 @@ type Resolver struct {
 
 // Resolvers implements a list of resolvers.
 type Resolvers struct {
-	Resolvers []Resolver
+	Resolvers []ResolverEntry
 }
 
 var (

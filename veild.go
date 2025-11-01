@@ -96,8 +96,7 @@ func Run(config *Config) {
 
 	// Load each resolver into the pool.
 	for _, resolver := range resolvers.Resolvers {
-		w := NewWorker(resolver.Address, resolver.Hostname)
-		pool.AddWorker(w)
+		pool.AddResolver(resolver)
 	}
 
 	// Enter the listening loop.

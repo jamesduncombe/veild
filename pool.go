@@ -14,8 +14,8 @@ const statsFrequency = 10 * time.Second
 
 // Pool represents a new connection pool.
 type Pool struct {
-	workers   chan *Worker
-	reconnect chan *Worker
+	resolvers chan *Resolver
+	reconnect chan *Resolver
 	requests  chan *Request
 	log       *slog.Logger
 }
@@ -23,8 +23,8 @@ type Pool struct {
 // NewPool creates a new connection pool.
 func NewPool(logger *slog.Logger, workerQueueSize int) *Pool {
 	return &Pool{
-		workers:   make(chan *Worker, workerQueueSize),
-		reconnect: make(chan *Worker, reconnectionQueueSize),
+		resolvers: make(chan *Resolver, workerQueueSize),
+		reconnect: make(chan *Resolver, reconnectionQueueSize),
 		requests:  make(chan *Request, requestQueueSize),
 		log:       logger.With("module", "pool"),
 	}
@@ -33,57 +33,56 @@ func NewPool(logger *slog.Logger, workerQueueSize int) *Pool {
 // Stats prints out connection stats every x seconds.
 func (p *Pool) Stats() {
 	for {
-		p.log.Info("Stats", "requests", len(p.requests), "reconnecting", len(p.reconnect), "workers", len(p.workers))
+		p.log.Info("Stats", "requests", len(p.requests), "reconnecting", len(p.reconnect), "workers", len(p.resolvers))
 		time.Sleep(statsFrequency)
 	}
 }
 
 // ConnectionManagement management handles reconnects.
 func (p *Pool) ConnectionManagement() {
-	for reconnect := range p.reconnect {
-		p.log.Info("Reconnecting", "host", reconnect.host)
+	for resolver := range p.reconnect {
+		p.log.Info("Reconnecting", "host", resolver.resolver.Address)
 
 		// Let's see how many are reconnecting and how many workers we have.
-		p.log.Info("Stats", "requests", len(p.requests), "reconnecting", len(p.reconnect), "workers", len(p.workers))
+		p.log.Info("Stats", "requests", len(p.requests), "reconnecting", len(p.reconnect), "workers", len(p.resolvers))
 
-		w := NewWorker(reconnect.host, reconnect.serverName)
-		p.AddWorker(w)
+		p.AddResolver(resolver.resolver)
 	}
 }
 
-// AddWorker adds a new worker to the pool.
-func (p *Pool) AddWorker(w *Worker) {
-	go p.worker(w)
+// AddResolver adds a new worker to the pool.
+func (p *Pool) AddResolver(resolver ResolverEntry) {
+	go p.worker(resolver)
 }
 
-// worker creates a new underlying pconn and assigns it a ResponseCache.
-func (p *Pool) worker(worker *Worker) {
+// worker creates a new underlying connection and assigns it a ResponseCache.
+func (p *Pool) worker(re ResolverEntry) {
 
-	// Each pconn has it's own ResponseCache.
+	// Each resolver has it's own ResponseCache.
 	responseCache := NewResponseCache(p.log)
 
 	// Start a new connection.
 	// TODO: Return an error?
-	pconn, err := NewPConn(responseCache, worker, p.log)
+	resolver, err := NewResolver(responseCache, re, p.log)
 	if err != nil {
-		p.log.Warn("Failed to add a new connection", "host", worker.host, "err", err)
+		p.log.Warn("Failed to add a new connection", "host", re.Address, "err", err)
 		return
 	}
 
 	// Put the worker into the pool.
-	p.workers <- worker
+	p.resolvers <- resolver
 
 	// Enter the loop for the worker.
 	for {
 		select {
-		case <-pconn.closeCh:
-			p.log.Info("PConn gone")
-			worker.done <- struct{}{}
+		case <-resolver.closeCh:
+			p.log.Info("Resolver gone")
+			resolver.doneCh <- struct{}{}
 			return
 		case req := <-p.requests:
 			p.log.Debug("Pulled request from worker, pushing to upstream",
-				"host", pconn.host, "pconn_requests", len(pconn.writeCh))
-			pconn.writeCh <- req
+				"host", re.Address, "resolver_requests", len(resolver.writeCh))
+			resolver.writeCh <- req
 		}
 	}
 }
@@ -96,30 +95,30 @@ func (p *Pool) Dispatch() {
 		// Pull a request off.
 		request := <-p.requests
 
-		p.log.Debug("Workers and requests in pool", "workers", len(p.workers), "requests", len(p.requests))
+		p.log.Debug("Workers and requests in pool", "workers", len(p.resolvers), "requests", len(p.requests))
 
 		// Pull a worker off.
-		worker := <-p.workers
+		resolver := <-p.resolvers
 
-		p.log.Debug("Worker picked up", "worker", worker.serverName)
+		p.log.Debug("Worker picked up", "worker", resolver.resolver.Hostname)
 
 		select {
-		case <-worker.done:
+		case <-resolver.doneCh:
 			// Worker is down, reconnect and re-queue request.
-			p.reconnect <- worker
+			p.reconnect <- resolver
 			p.requests <- request
 
-			p.log.Debug("Worker down", "worker", worker.serverName)
+			p.log.Debug("Worker down", "worker", resolver.resolver.Hostname)
 
 		default:
 			// Else, put the worker back into the pool and
 			// stick the request back on the requests queue.
-			p.log.Debug("Worker still alive, forwarding request", "worker", worker.serverName)
+			p.log.Debug("Worker still alive, forwarding request", "worker", resolver.resolver.Hostname)
 
-			p.workers <- worker
+			p.resolvers <- resolver
 			p.requests <- request
 
-			p.log.Debug("Worker returned to pool", "worker", worker.serverName)
+			p.log.Debug("Worker returned to pool", "worker", resolver.resolver.Hostname)
 		}
 
 	}
