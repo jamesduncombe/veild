@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"sync"
@@ -19,7 +20,7 @@ type Resolver struct {
 	writeCh  chan *Request
 	closeCh  chan struct{}
 	doneCh   chan struct{}
-	conn     *tls.Conn
+	conn     io.ReadWriteCloser
 	cache    *ResponseCache
 	log      *slog.Logger
 
@@ -70,7 +71,7 @@ retry:
 }
 
 // dialConn handles dialing the outbound connection to the underlying DNS server.
-func (rs *Resolver) dialConn() (*tls.Conn, error) {
+func (rs *Resolver) dialConn() (io.ReadWriteCloser, error) {
 	dialer := &net.Dialer{
 		Timeout: 5 * time.Second,
 	}
