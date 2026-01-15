@@ -9,6 +9,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: '1.25'
+
 jobs:
   test:
 
@@ -16,9 +23,7 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        go-version: [ '1.25' ]
+    timeout-minutes: 5
 
     steps:
       - name: Checkout
@@ -26,10 +31,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Go ${{ matrix.go-version }}
+      - name: Setup Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Vet
         run: go vet ./...
@@ -41,7 +46,7 @@ jobs:
         with:
           version: "latest"
           install-go: false
-          cache-key: ${{ matrix.go-version }}-staticcheck
+          cache-key: ${{ env.GO_VERSION }}-staticcheck
 
   build:
 
@@ -51,16 +56,18 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    timeout-minutes: 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
 
-      - name: Setup Go ${{ matrix.go-version }}
+      - name: Setup Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6
         with:
-          go-version: '1.25'
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Build all
         shell: bash
@@ -95,7 +102,7 @@ jobs:
           name: veild-artifacts
 
       - name: Upload release artifacts
-        run: gh release upload "$GITHUB_REF_NAME" veild-*
+        run: gh release upload "$GITHUB_REF_NAME" veild_*
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
