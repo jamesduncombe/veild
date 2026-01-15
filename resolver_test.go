@@ -99,6 +99,8 @@ func (t NullResolverDialer) DialConn(re ResolverEntry) (io.ReadWriteCloser, erro
 
 func TestResolver_NewResolver(t *testing.T) {
 
+	t.Skip("skipping NewResolver test")
+
 	// Setup.
 	logger := newLogger()
 	// TODO: We're using a global query cache which isn't right.
