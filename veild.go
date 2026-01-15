@@ -2,6 +2,7 @@
 package veild
 
 import (
+	"fmt"
 	"log/slog"
 	"net"
 	"os"
@@ -153,7 +154,7 @@ func resolve(p *Pool, request *Request, mainLog *slog.Logger) {
 
 		// Get the cached entry if we have one.
 		if query, ok := queryCache.Get(cacheKey); ok {
-			queryCache.log.Debug("Cache hit", "key", cacheKey, "host", rr.hostname, "rtype", rr.rType)
+			queryCache.log.Debug("Cache hit", "entry", fmt.Sprintf("0x%x", cacheKey), "host", rr.hostname, "rtype", rr.rType)
 			// TODO: Check that this lock actually works as expected.
 			// Then maybe move the logic into query cache?
 			queryCache.mu.Lock()
