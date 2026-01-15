@@ -54,15 +54,57 @@ When your OS is set to use veild you should start to see some activity in the co
 
 ### Resolvers
 
-The `resolvers.yml` file which you'll see in the archive also gives you the ability to enable/disable DNS resolvers as needed. I've added comments in there which should explain things.
+Out of the box `veild` is set to use the following resolvers config:
+
+```yaml
+resolvers:
+  - address: "9.9.9.9:853"
+    hostname: "dns.quad9.net"
+  - address: "194.242.2.9:853"
+    hostname: "all.dns.mullvad.net"
+```
+
+To add your own, create a file called `resolvers.yml` (for example) and add other resolvers. Here are a few other options to get you started (uncomment them and restart `veild` as needed):
+
+```yaml
+resolvers:
+
+  # Cloudflare DNS servers
+  # - address: "1.1.1.1:853"
+  # hostname: "cloudflare-dns.com"
+
+  # - address: "1.0.0.1:853"
+  #   hostname: "cloudflare-dns.com"
+
+  # Google DNS servers
+  #- address: "8.8.8.8:853"
+  #  hostname: "dns.google"
+
+  # Quad9 DNS servers
+  # See: https://www.quad9.net/faq/#Does_Quad9_support_DNS_over_TLS
+  # Secure IP: 9.9.9.9 Provides: Security blocklist, DNSSEC, No EDNS Client-Subnet sent.
+  - address: "9.9.9.9:853"
+    hostname: "dns.quad9.net"
+
+  # Mullvad DNS servers
+  # See: https://mullvad.net/en/help/dns-over-https-and-dns-over-tls
+  - address: "194.242.2.9:853"
+    hostname: "all.dns.mullvad.net"
+
+  # Unsecured IP: 9.9.9.10 Provides: No security blocklist, no DNSSEC, sends EDNS Client-Subnet.
+  # - address: "9.9.9.10:853"
+  #   hostname: "dns.quad9.net"
+```
 
 ### Blacklists
 
-Blacklist support is also available to block ad domains etc. For that you'll need to head to [Steven Black's repo](https://github.com/StevenBlack/hosts) where you can find multiple blacklists available for download.
+Support is also available to block ad domains etc. Head to https://github.com/hagezi/dns-blocklists where you can find multiple blacklists available for download.
 
-Veild is happy working with the hosts file format, so, once you have a blacklist downloaded, simply add: `-b blacklist.txt` to the end of the command above.
+As a headstart, try the "Multi Normal" (all round protection list) here: https://github.com/hagezi/dns-blocklists/tree/main?tab=readme-ov-file#normal. Look for the `Hosts` format and download from there.
 
-I think that just about covers things... for a full set of the arguments that you can pass to veild run: `./veild --help`
+`veild` is happy working with the hosts file format, so, once you have a blacklist downloaded, simply add: `-b blacklist.txt` to the end of the command above.
+
+I think that just about covers things... for a full set of the arguments that you can pass to veild run: `./veild -help`
 
 ## Todo
 
