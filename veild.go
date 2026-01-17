@@ -51,11 +51,15 @@ func Run(config *Config) {
 			os.Exit(1)
 		}
 		blocklist.log.Info("Loading entries into the blocklist", "entries", len(blocklist.list))
+		// TODO: Fix how we handle these global config flags.
+		// currently we're passing them in via a config struct then exposing them globally.
 		blocklisting = true
 	}
 
 	// Setup caching.
 	if config.Caching {
+		// TODO: Fix how we handle these global config flags.
+		// currently we're passing them in via a config struct then exposing them globally.
 		caching = true
 		queryCache = NewQueryCache(mainLog)
 		go queryCache.Reaper()
