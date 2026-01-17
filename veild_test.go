@@ -8,7 +8,7 @@ func TestVeild_resolve(t *testing.T) {
 
 	t.Skip("stubbed")
 
-	// TODO: Should test for blacklist handling.
+	// TODO: Should test for blocklist handling.
 	// TODO: Should test for caching handling.
 
 	// isitblocked.org A record.

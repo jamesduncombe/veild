@@ -15,7 +15,7 @@ var veilVersion string
 var (
 	listenAddr    string
 	noCaching     bool
-	blacklistFile string
+	blocklistFile string
 	resolversFile string
 	version       bool
 )
@@ -24,13 +24,13 @@ var (
 func NewConfig(
 	listenAddr string,
 	noCaching bool,
-	blacklistFile string,
+	blocklistFile string,
 	resolversFile string,
 ) *veild.Config {
 	return &veild.Config{
 		ListenAddr:    listenAddr,
 		Caching:       noCaching,
-		BlacklistFile: blacklistFile,
+		BlocklistFile: blocklistFile,
 		ResolversFile: resolversFile,
 		Version:       veilVersion,
 	}
@@ -44,7 +44,7 @@ func main() {
 	// Flags init.
 	flag.StringVar(&listenAddr, "l", "127.0.0.1:53", "Listen on `address:port` for serving requests")
 	flag.BoolVar(&noCaching, "no-cache", false, "If specified, turn off caching")
-	flag.StringVar(&blacklistFile, "b", "", "Read `blacklist_file` and enable blacklisting Ad domains")
+	flag.StringVar(&blocklistFile, "b", "", "Read `blocklist_file` and enable blocklisting Ad domains")
 	flag.StringVar(&resolversFile, "r", "", "Read resolvers from `resolvers_file` and load them")
 	flag.BoolVar(&version, "version", false, "Displays the version of Veild")
 	flag.Parse()
@@ -55,7 +55,7 @@ func main() {
 	}
 
 	// Build the config.
-	config := NewConfig(listenAddr, !noCaching, blacklistFile, resolversFile)
+	config := NewConfig(listenAddr, !noCaching, blocklistFile, resolversFile)
 
 	// Start Veil.
 	veild.Run(config)

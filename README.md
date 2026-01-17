@@ -14,7 +14,7 @@ Thanks to the following sites/RFCs:
 
 - Roundrobin of requests over each DNS server
 - Caches responses and adhers to TTLs
-- Blacklist domains using a supplied file (txt file of domains to block)
+- Blocklist domains using a supplied file (txt file of domains to block)
 - Ability to define a list of resolvers in a YAML file
 
 ## Install
@@ -96,13 +96,13 @@ resolvers:
   #   hostname: "dns.quad9.net"
 ```
 
-### Blacklists
+### Blocklists
 
-Support is also available to block ad domains etc. Head to https://github.com/hagezi/dns-blocklists where you can find multiple blacklists available for download.
+Support is also available to block ad domains etc. Head to https://github.com/hagezi/dns-blocklists where you can find multiple blocklists available for download.
 
 As a headstart, try the "Multi Normal" (all round protection list) here: https://github.com/hagezi/dns-blocklists/tree/main?tab=readme-ov-file#normal. Look for the `Hosts` format and download from there.
 
-`veild` is happy working with the hosts file format, so, once you have a blacklist downloaded, simply add: `-b blacklist.txt` to the end of the command above.
+`veild` is happy working with the hosts file format, so, once you have a blocklist downloaded, simply add: `-b blocklist.txt` to the end of the command above.
 
 I think that just about covers things... for a full set of the arguments that you can pass to veild run: `./veild -help`
 

@@ -18,16 +18,16 @@ type Config struct {
 	Version       string
 	ListenAddr    string
 	Caching       bool
-	BlacklistFile string
+	BlocklistFile string
 	ResolversFile string
 }
 
 var (
 	queryCache   *QueryCache
-	blacklist    *Blacklist
+	blocklist    *Blocklist
 	numRequests  atomic.Uint64
 	caching      bool
-	blacklisting = false
+	blocklisting = false
 )
 
 // Run starts up the app.
@@ -41,17 +41,17 @@ func Run(config *Config) {
 
 	mainLog.Info("Starting Veil", "version", config.Version)
 
-	// Setup blacklist.
-	if config.BlacklistFile != "" {
+	// Setup blocklist.
+	if config.BlocklistFile != "" {
 		var err error
-		blacklist, err = NewBlacklist(config.BlacklistFile, mainLog)
-		blacklist.log.Info("Loading blacklist")
+		blocklist, err = NewBlocklist(config.BlocklistFile, mainLog)
+		blocklist.log.Info("Loading blocklist")
 		if err != nil {
-			mainLog.Error("Error loading blacklist", "err", err)
+			mainLog.Error("Error loading blocklist", "err", err)
 			os.Exit(1)
 		}
-		blacklist.log.Info("Loading entries into the blacklist", "entries", len(blacklist.list))
-		blacklisting = true
+		blocklist.log.Info("Loading entries into the blocklist", "entries", len(blocklist.list))
+		blocklisting = true
 	}
 
 	// Setup caching.
@@ -135,10 +135,10 @@ func resolve(p *Pool, request *Request, mainLog *slog.Logger) {
 	}
 	mainLog.Info("New request", "host", rr.hostname, "rtype", rr.rType)
 
-	// Handle blacklisted domains if enabled.
+	// Handle blocklisted domains if enabled.
 	// SEE: https://en.wikipedia.org/wiki/DNS_sinkhole
-	if blacklisting && blacklist.Exists(rr.hostname) {
-		blacklist.log.Info("Blocklist match", "host", rr.hostname)
+	if blocklisting && blocklist.Exists(rr.hostname) {
+		blocklist.log.Info("Blocklist match", "host", rr.hostname)
 		// Reform the query as a response with 0 answers.
 		transIDFlags := append(request.data[:2], []byte{0x81, 0x83}...)
 		newPacket := append(transIDFlags, request.data[len(transIDFlags):]...)
