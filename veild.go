@@ -15,27 +15,43 @@ import (
 
 // Config represents the command line options.
 type Config struct {
-	Version       string
-	ListenAddr    string
-	Caching       bool
-	BlocklistFile string
-	ResolversFile string
+	Version          string
+	ListenAddr       string
+	CachingEnabled   bool
+	BlocklistEnabled bool
+	BlocklistFile    string
+	ResolversFile    string
+	LogLevel         slog.Level
 }
 
 var (
-	queryCache   *QueryCache
-	blocklist    *Blocklist
-	numRequests  atomic.Uint64
-	caching      bool
-	blocklisting = false
+	config      *Config
+	queryCache  *QueryCache
+	blocklist   *Blocklist
+	numRequests atomic.Uint64
 )
 
+// ParseLogLevel converts a string log level to a slog.Level.
+func ParseLogLevel(level string) slog.Level {
+	switch level {
+	case "debug":
+		return slog.LevelDebug
+	case "info":
+		return slog.LevelInfo
+	default:
+		return slog.LevelWarn
+	}
+}
+
 // Run starts up the app.
-func Run(config *Config) {
+func Run(initialConfig *Config) {
+
+	// Expose the config globally.
+	config = initialConfig
 
 	mainLog := slog.New(
 		tint.NewHandler(os.Stderr, &tint.Options{
-			Level: slog.LevelDebug,
+			Level: config.LogLevel,
 		}),
 	)
 
@@ -51,16 +67,11 @@ func Run(config *Config) {
 			os.Exit(1)
 		}
 		blocklist.log.Info("Loading entries into the blocklist", "entries", len(blocklist.list))
-		// TODO: Fix how we handle these global config flags.
-		// currently we're passing them in via a config struct then exposing them globally.
-		blocklisting = true
+		config.BlocklistEnabled = true
 	}
 
 	// Setup caching.
-	if config.Caching {
-		// TODO: Fix how we handle these global config flags.
-		// currently we're passing them in via a config struct then exposing them globally.
-		caching = true
+	if config.CachingEnabled {
 		queryCache = NewQueryCache(mainLog)
 		go queryCache.Reaper()
 	} else {
@@ -141,7 +152,7 @@ func resolve(p *Pool, request *Request, mainLog *slog.Logger) {
 
 	// Handle blocklisted domains if enabled.
 	// SEE: https://en.wikipedia.org/wiki/DNS_sinkhole
-	if blocklisting && blocklist.Exists(rr.hostname) {
+	if config.BlocklistEnabled && blocklist.Exists(rr.hostname) {
 		blocklist.log.Info("Blocklist match", "host", rr.hostname)
 		// Reform the query as a response with 0 answers.
 		transIDFlags := append(request.data[:2], []byte{0x81, 0x83}...)
@@ -151,7 +162,7 @@ func resolve(p *Pool, request *Request, mainLog *slog.Logger) {
 	}
 
 	// Handle caching if enabled.
-	if caching {
+	if config.CachingEnabled {
 		// Create cache key.
 		cacheKey := createCacheKey(rr.cacheKey)
 

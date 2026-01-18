@@ -17,24 +17,9 @@ var (
 	noCaching     bool
 	blocklistFile string
 	resolversFile string
+	logLevel      string
 	version       bool
 )
-
-// NewConfig builds a new config from the command line flags.
-func NewConfig(
-	listenAddr string,
-	noCaching bool,
-	blocklistFile string,
-	resolversFile string,
-) *veild.Config {
-	return &veild.Config{
-		ListenAddr:    listenAddr,
-		Caching:       noCaching,
-		BlocklistFile: blocklistFile,
-		ResolversFile: resolversFile,
-		Version:       veilVersion,
-	}
-}
 
 func main() {
 
@@ -46,6 +31,7 @@ func main() {
 	flag.BoolVar(&noCaching, "no-cache", false, "If specified, turn off caching")
 	flag.StringVar(&blocklistFile, "b", "", "Read `blocklist_file` and enable blocklisting Ad domains")
 	flag.StringVar(&resolversFile, "r", "", "Read resolvers from `resolvers_file` and load them")
+	flag.StringVar(&logLevel, "log-level", "info", "Set the logging level (debug, info, warn)")
 	flag.BoolVar(&version, "version", false, "Displays the version of Veild")
 	flag.Parse()
 
@@ -54,11 +40,15 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Build the config.
-	config := NewConfig(listenAddr, !noCaching, blocklistFile, resolversFile)
-
 	// Start Veil.
-	veild.Run(config)
+	veild.Run(&veild.Config{
+		ListenAddr:     listenAddr,
+		CachingEnabled: !noCaching,
+		BlocklistFile:  blocklistFile,
+		ResolversFile:  resolversFile,
+		LogLevel:       veild.ParseLogLevel(logLevel),
+		Version:        veilVersion,
+	})
 }
 
 // usage handles the default usage instructions for the cmd.

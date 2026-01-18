@@ -117,7 +117,7 @@ func TestResolver_NewResolver(t *testing.T) {
 	}
 
 	// Turn caching on.
-	caching = true
+	config.CachingEnabled = true
 
 	// Read in a raw packet.
 	rawPacket, _ := os.ReadFile("fixtures/request_protonmail.com_a.pkt")

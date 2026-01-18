@@ -110,7 +110,7 @@ func (rs *Resolver) readLoop() {
 
 			rs.cache.log.Info("Match request cache", "trx_id", fmt.Sprintf("0x%x", trxID))
 
-			if caching {
+			if config.CachingEnabled {
 				offsets, err := ttlOffsets(buff)
 				if err != nil {
 					rs.cache.log.Warn("Error parsing offsets", "err", err)
