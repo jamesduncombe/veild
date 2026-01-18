@@ -22,8 +22,8 @@ func TestResolvers_NewResolvers(t *testing.T) {
 			want:     ErrUnmarshallingResolvers,
 		},
 		{
-			name:     "handle non-existant file",
-			filename: "non-existant file",
+			name:     "handle non-existent file",
+			filename: "non-existent file",
 			want:     ErrReadingResolversFile,
 		},
 	}

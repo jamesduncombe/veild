@@ -13,7 +13,7 @@ Thanks to the following sites/RFCs:
 ## Features
 
 - Roundrobin of requests over each DNS server
-- Caches responses and adhers to TTLs
+- Caches responses and adheres to TTLs
 - Blocklist domains using a supplied file (txt file of domains to block)
 - Ability to define a list of resolvers in a YAML file
 
