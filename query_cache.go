@@ -44,7 +44,7 @@ func (qc *QueryCache) Get(key cacheKey) (*Query, bool) {
 		}
 
 		// Remove it, must be too old.
-		qc.log.Info("Removing cache entry", "entry", key)
+		qc.log.Debug("Removing cache entry", "entry", key)
 		delete(qc.queries, key)
 	}
 
@@ -88,7 +88,7 @@ func (qc *QueryCache) reaper() {
 			qc.queries[cacheKey] = &Query{query.data, query.offsets, now}
 			continue
 		}
-		qc.log.Info("Removing cache entry", "entry", cacheKey, "context", "reaper")
+		qc.log.Debug("Removing cache entry", "entry", cacheKey, "context", "reaper")
 		delete(qc.queries, cacheKey)
 	}
 

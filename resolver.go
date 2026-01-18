@@ -47,7 +47,7 @@ func NewResolver(rc *ResponseCache, re ResolverEntry, rd ResolverDialer, logger 
 	var t time.Duration = 1
 
 retry:
-	rs.log.Info("Dialing connection", "host", rs.resolver.Address)
+	rs.log.Debug("Dialing connection", "host", rs.resolver.Address)
 
 	// Reset duration back to 1 if we've exceeded a reasonable backoff.
 	if t >= 1024 {
@@ -82,7 +82,7 @@ func (rs *Resolver) readLoop() {
 		rs.mu.Lock()
 		defer rs.mu.Unlock()
 
-		rs.log.Info("Closing connection from read side", "host", rs.resolver.Address, "last_request", time.Since(rs.lastReq), "lasted", time.Since(rs.start))
+		rs.log.Debug("Closing connection from read side", "host", rs.resolver.Address, "last_request", time.Since(rs.lastReq), "lasted", time.Since(rs.start))
 		rs.conn.Close()
 		close(rs.closeCh)
 	}()
@@ -94,7 +94,7 @@ func (rs *Resolver) readLoop() {
 		n, err := rs.conn.Read(buff)
 
 		if err != nil {
-			rs.log.Info("Connection gone away", "host", rs.resolver.Address, "err", err)
+			rs.log.Debug("Connection gone away", "host", rs.resolver.Address, "err", err)
 			return
 		}
 
@@ -108,7 +108,7 @@ func (rs *Resolver) readLoop() {
 
 		if request, ok := rs.cache.Get(key); ok {
 
-			rs.cache.log.Info("Match request cache", "trx_id", fmt.Sprintf("0x%x", trxID))
+			rs.cache.log.Debug("Match request cache", "trx_id", fmt.Sprintf("0x%x", trxID))
 
 			if config.CachingEnabled {
 				offsets, err := ttlOffsets(buff)
@@ -152,7 +152,7 @@ func (rs *Resolver) writeLoop() {
 		rs.mu.Lock()
 		defer rs.mu.Unlock()
 
-		rs.log.Info("Closing connection from write side", "host", rs.resolver.Address, "last_request", time.Since(rs.lastReq), "lasted", time.Since(rs.start))
+		rs.log.Debug("Closing connection from write side", "host", rs.resolver.Address, "last_request", time.Since(rs.lastReq), "lasted", time.Since(rs.start))
 		rs.conn.Close()
 	}()
 

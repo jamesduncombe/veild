@@ -41,10 +41,10 @@ func (p *Pool) Stats() {
 // ConnectionManagement management handles reconnects.
 func (p *Pool) ConnectionManagement() {
 	for resolver := range p.reconnect {
-		p.log.Info("Reconnecting", "host", resolver.resolver.Address)
+		p.log.Debug("Reconnecting", "host", resolver.resolver.Address)
 
 		// Let's see how many are reconnecting and how many workers we have.
-		p.log.Info("Stats", "requests", len(p.requests), "reconnecting", len(p.reconnect), "workers", len(p.resolvers))
+		p.log.Debug("Stats", "requests", len(p.requests), "reconnecting", len(p.reconnect), "workers", len(p.resolvers))
 
 		rd := TLSResolverDialer{}
 		p.AddResolver(resolver.resolver, rd)
@@ -77,7 +77,7 @@ func (p *Pool) worker(re ResolverEntry, rd ResolverDialer) {
 	for {
 		select {
 		case <-resolver.closeCh:
-			p.log.Info("Resolver gone")
+			p.log.Debug("Resolver gone")
 			resolver.doneCh <- struct{}{}
 			return
 		case req := <-p.requests:
